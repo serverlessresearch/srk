@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/jssmith/srk/pkg/cfbench"
+	"github.com/serverlessresearch/srk/pkg/cfbench"
 	"os"
 )
 
