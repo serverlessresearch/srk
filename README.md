@@ -14,8 +14,9 @@ Here is one command that you can run to test a cloud function:
 ```
 srk bench \
   --mode concurrency_scan \
-  --function-name myfunction \
-  --params='{"begin_concurrency":1,"end_concurrency":10,"num_steps":5,"step_duration":5}'
+  --function-name sleepworkload \
+  --function-args '{"sleep_time_ms":5000}' \
+  --params '{"begin_concurrency":1,"delta_concurrency":1,"num_steps":5,"step_duration":5}'
 ```
 
 See an [example test function](examples/cfbench/sleep_workload.py).
