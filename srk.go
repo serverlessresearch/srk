@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"github.com/serverlessresearch/srk/pkg/cfbench"
 	"os"
 )
@@ -22,22 +21,31 @@ func main() {
 		flags := flag.NewFlagSet("bench", flag.ContinueOnError)
 		mode := flags.String("mode", "", "Mode of benchmark")
 		functionName := flags.String("function-name", "", "Which function to run")
-		args := flags.String("params", "{}", "JSON arguments")
+		functionArgs := flags.String("function-args", "{}", "Arguments to the function")
+		benchParams := flags.String("params", "{}", "JSON arguments")
 		logfile := flags.String("output", "log.txt", "Output file")
 
 		if err := flags.Parse(os.Args[2:]); err != nil {
 			panic(err)
 		}
-		fmt.Printf("mode is %s\n", *mode)
-		fmt.Printf("mode is %s\n", *functionName)
-		fmt.Printf("mode is %s\n", *args)
-		var argdata map[string]interface{}
-		if err := json.Unmarshal([]byte(*args), &argdata); err != nil {
+
+		var scanArgs cfbench.ConcurrencySweepArgs
+		if err := json.Unmarshal([]byte(*benchParams), &scanArgs); err != nil {
 			panic(err)
 		}
-		fmt.Printf("decoded argdata %+v\n",argdata)
-		cfbench.ConcurrencySweep(*logfile)
 
+		var functionArgsData map[string]interface{}
+		if err := json.Unmarshal([]byte(*functionArgs), &functionArgsData); err != nil {
+			panic(err)
+		}
+
+		switch *mode {
+		case "concurrency_scan":
+			transitions := cfbench.GenSweepTransitions(scanArgs)
+			cfbench.ConcurrencySweep(*functionName, functionArgsData, transitions, *logfile)
+		default:
+			panic("unknown mode")
+		}
 	default:
 		panic("unknown command")
 	}

@@ -9,7 +9,7 @@ import (
 	"net/http"
 )
 
-func ExperimentServer(progress *Progress, logWriter chan string, alldone chan struct{}) {
+func ExperimentServer(progress *progress, logWriter chan string, alldone chan struct{}) {
 	var srv = http.Server{Addr: ":3000"}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, err := fmt.Fprintf(w, "Serverless Experiment Controller")
@@ -34,11 +34,11 @@ func ExperimentServer(progress *Progress, logWriter chan string, alldone chan st
 			}
 			switch data["action"] {
 			case "begin":
-				progress.setRunning()
+				progress.setRunning(data["uuid"].(string))
 			case "end":
-				progress.setDone()
+				progress.setDone(data["uuid"].(string))
 			}
-			log.Print(data)
+			//log.Print(data)
 			_, err = fmt.Fprintf(w, "Thanks for the event.")
 			if err != nil {
 				log.Fatal(err)
@@ -62,10 +62,10 @@ func ExperimentServer(progress *Progress, logWriter chan string, alldone chan st
 				http.Error(w, "Error parsing body", 400)
 				return
 			}
-			progress.setData()
-			log.Print(data)
+			progress.setData(data["uuid"].(string))
+			//log.Print(data)
 			if progress.allDone() {
-				log.Print("all done!!")
+				log.Printf("finished processing responses for experiment %s", progress.experimentId)
 				if err := srv.Shutdown(context.Background()); err != nil {
 					log.Printf("HTTP server shutdown error: %v", err)
 				}
