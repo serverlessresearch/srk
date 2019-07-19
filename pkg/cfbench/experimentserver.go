@@ -18,6 +18,16 @@ func ExperimentServer(progress *progress, logWriter chan string, alldone chan st
 		}
 	})
 
+	checkAllDone := func() {
+		if progress.allDone() {
+			log.Printf("finished processing responses for experiment %s", progress.experimentId)
+			if err := srv.Shutdown(context.Background()); err != nil {
+				log.Printf("HTTP server shutdown error: %v", err)
+			}
+			close(alldone)
+		}
+	}
+
 	http.HandleFunc("/event", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
@@ -37,6 +47,7 @@ func ExperimentServer(progress *progress, logWriter chan string, alldone chan st
 				progress.setRunning(data["uuid"].(string))
 			case "end":
 				progress.setDone(data["uuid"].(string))
+				checkAllDone()
 			}
 			//log.Print(data)
 			_, err = fmt.Fprintf(w, "Thanks for the event.")
@@ -64,13 +75,7 @@ func ExperimentServer(progress *progress, logWriter chan string, alldone chan st
 			}
 			progress.setData(data["uuid"].(string))
 			//log.Print(data)
-			if progress.allDone() {
-				log.Printf("finished processing responses for experiment %s", progress.experimentId)
-				if err := srv.Shutdown(context.Background()); err != nil {
-					log.Printf("HTTP server shutdown error: %v", err)
-				}
-				close(alldone)
-			}
+			checkAllDone()
 			_, err = fmt.Fprintf(w, "Thanks for the data.")
 			if err != nil {
 				log.Fatal(err)

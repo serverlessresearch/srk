@@ -41,6 +41,7 @@ func ConcurrencySweep(functionName string, functionArgs map[string]interface{},s
 
 	// Create a log writer
 	logWriter := make(chan string)
+	logWriterWorking := make(chan struct{})
 	go func() {
 		f, err := os.OpenFile(logfile, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 		if err != nil {
@@ -52,6 +53,7 @@ func ConcurrencySweep(functionName string, functionArgs map[string]interface{},s
 				log.Printf("Unable to log %v", err)
 			}
 		}
+		close(logWriterWorking)
 	}()
 
 	// Start the server and invoke function execution
@@ -60,6 +62,6 @@ func ConcurrencySweep(functionName string, functionArgs map[string]interface{},s
 
 	<-serverWorking
 
-	// TODO is this right?
 	close(logWriter)
+	<-logWriterWorking
 }

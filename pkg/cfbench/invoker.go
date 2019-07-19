@@ -104,9 +104,10 @@ func (p *progress) setDone(uuid string) {
 		p.runningSet.remove(uuid)
 		p.completedSet.add(uuid)
 	}
-	pending, running, completed := p.pendingSet.size(), p.runningSet.size(), p.completedSet.size()
+	pending, running, completed, data := p.pendingSet.size(), p.runningSet.size(), p.completedSet.size(), p.dataSet.size()
+	invocationDone := p.invocationDone
 	p.m.Unlock()
-	log.Printf("progress now [%d %d %d]", pending, running, completed)
+	log.Printf("progress now [%d %d %d %d %t]", pending, running, completed, data, invocationDone)
 	p.updateNotice <- true
 }
 
@@ -123,6 +124,7 @@ func (p *progress) allDone() bool {
 	done := p.invocationDone && p.pendingSet.size() == 0 && p.runningSet.size() == 0 && p.completedSet.size() != 0 &&
 		p.completedSet.size() == p.dataSet.size()
 	p.m.Unlock()
+	//log.Printf("Done check found %t", done)
 	return done
 }
 
