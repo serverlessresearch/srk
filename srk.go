@@ -3,7 +3,10 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"github.com/serverlessresearch/srk/pkg/cfbench"
+	"log"
+	"net"
 	"os"
 )
 
@@ -23,6 +26,7 @@ func main() {
 		functionName := flags.String("function-name", "", "Which function to run")
 		functionArgs := flags.String("function-args", "{}", "Arguments to the function")
 		benchParams := flags.String("params", "{}", "JSON arguments")
+		trackingUrl := flags.String("tracking-url", "", "url for posting responses")
 		logfile := flags.String("output", "log.txt", "Output file")
 
 		if err := flags.Parse(os.Args[2:]); err != nil {
@@ -39,14 +43,60 @@ func main() {
 			panic(err)
 		}
 
+		if *trackingUrl == "" {
+			ip := getLocalIp()
+			*trackingUrl = fmt.Sprintf("http://%s:3000/", ip)
+		}
+		log.Printf("using tracking url %s", *trackingUrl)
+
 		switch *mode {
 		case "concurrency_scan":
 			transitions := cfbench.GenSweepTransitions(scanArgs)
-			cfbench.ConcurrencySweep(*functionName, functionArgsData, transitions, *logfile)
+			cfbench.ConcurrencySweep(*functionName, functionArgsData, transitions, *trackingUrl, *logfile)
 		default:
 			panic("unknown mode")
 		}
 	default:
 		panic("unknown command")
 	}
+}
+
+func getLocalIp() string {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		panic(err)
+	}
+
+	var interfaceAddrs []net.IP
+	for _, i := range interfaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			panic(err)
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip != nil && !ip.IsLoopback() {
+				if ip4 := ip.To4(); ip4 != nil {
+					interfaceAddrs = append(interfaceAddrs, ip4)
+				}
+			}
+		}
+	}
+	for _, ip := range interfaceAddrs {
+		if ip[0] == 10 {
+			return ip.String()
+		}
+	}
+	for _, ip := range interfaceAddrs {
+		if ip[0] == 172 && ip[1] & 0xF0 == 16 {
+			return ip.String()
+		}
+	}
+	return interfaceAddrs[0].String()
 }

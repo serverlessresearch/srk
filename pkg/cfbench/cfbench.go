@@ -32,7 +32,7 @@ func GenSweepTransitions(args ConcurrencySweepArgs) *[]TransitionPoint {
 	return &transitions
 }
 
-func ConcurrencySweep(functionName string, functionArgs map[string]interface{},sweepDefinition *[]TransitionPoint, logfile string) {
+func ConcurrencySweep(functionName string, functionArgs map[string]interface{},sweepDefinition *[]TransitionPoint, trackingUrl string, logfile string) {
 	experimentId := genExperimentId()
 	log.Printf("starting experiment %s", experimentId)
 	progress := newProgress(experimentId)
@@ -58,7 +58,7 @@ func ConcurrencySweep(functionName string, functionArgs map[string]interface{},s
 
 	// Start the server and invoke function execution
 	go ExperimentServer(&progress, logWriter, serverWorking)
-	go invokeMulti(experimentId, functionName, functionArgs, sweepDefinition, &progress)
+	go invokeMulti(experimentId, trackingUrl, functionName, functionArgs, sweepDefinition, &progress)
 
 	<-serverWorking
 

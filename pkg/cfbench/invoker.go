@@ -137,7 +137,7 @@ func (p *progress) getConcurrency() int {
 
 
 
-func invokeMulti(experimentId string, functionName string, functionArgs map[string]interface{}, sweepDefinition *[]TransitionPoint, progress *progress) {
+func invokeMulti(experimentId string, trackingUrl string, functionName string, functionArgs map[string]interface{}, sweepDefinition *[]TransitionPoint, progress *progress) {
 	sess := session.Must(session.NewSession())
 	client := lambda.New(sess, &aws.Config{Region: aws.String("us-west-2")})
 
@@ -148,7 +148,7 @@ func invokeMulti(experimentId string, functionName string, functionArgs map[stri
 			args := map[string]interface{}{
 				"uuid": uuid,
 				"experimentId": experimentId,
-				"tracking_url":  "http://192.168.60.101:3080/",
+				"tracking_url": trackingUrl,
 			}
 			for k, v := range functionArgs {
 				if _, exists := args[k]; !exists {
