@@ -35,6 +35,7 @@ In the command above you will need to make some substitutions.
 `{{YOUR_ROLE_ARN_HERE}}` should look something like `arn:aws:iam::123459789012:role/service-role/my-service-role-ae04d032`,
 `{{YOUR_SUBNET_IDS_HERE}}` should look something like `subnet-dd045605a058b8946,subnet-e56ceb1a1832684a4`, and
 `{{YOUR_SECURITY_GROUP_IDS_HERE}}` should look something like `sg-4cf9dbb40b73ca192,sg-016fb0eb84b2f3fee`.
+You may also need to set the region, e.g., with a command like `export AWS_DEFAULT_REGION=us-west-2`.
 
 Now you can run a command like this to test the cloud function:
 
