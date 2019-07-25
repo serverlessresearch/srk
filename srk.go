@@ -5,9 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"github.com/serverlessresearch/srk/pkg/cfbench"
+	"github.com/serverlessresearch/srk/pkg/cfpackage"
 	"log"
 	"net"
 	"os"
+	"strings"
 )
 
 // We structure the SRK command line tool as a single executable. We do this in hopes of bringing some cohesion to
@@ -55,6 +57,20 @@ func main() {
 			cfbench.ConcurrencySweep(*functionName, functionArgsData, transitions, *trackingUrl, *logfile)
 		default:
 			panic("unknown mode")
+		}
+	case "package":
+		flags := flag.NewFlagSet("package", flag.ContinueOnError)
+		source := flags.String("source", "", "source directory or file")
+		target := flags.String("target", "", "output zip file")
+		include := flags.String("include", "", "what to include, e.g., bench")
+		// TODO packaging for environments other than AWS Lambda
+
+		if err := flags.Parse(os.Args[2:]); err != nil {
+			panic(err)
+		}
+		includes := strings.Split(*include, ",")
+		if err := cfpackage.Package(*source, *target, includes); err != nil {
+			panic(err)
 		}
 	default:
 		panic("unknown command")

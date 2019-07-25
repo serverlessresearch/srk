@@ -44,7 +44,7 @@ if __name__ == "__main__":
             if args.metric_value in data:
                 vec[index] += data[args.metric_value] / dt
             else:
-                print("missing key %s in report for uuid %s" % (args.metric_value, ))
+                print("missing key %s in report for uuid %s" % (args.metric_value, uuid))
         else:
             print("missing report for uuid %s" % uuid)
 
