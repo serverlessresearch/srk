@@ -39,7 +39,7 @@ In the command above you will need to make some substitutions.
 Now you can run a command like this to test the cloud function:
 
 ```
-./srk cfbench \
+./srk bench \
   --mode concurrency_scan \
   --function-name sleepworkload \
   --function-args '{"sleep_time_ms":5000}' \
