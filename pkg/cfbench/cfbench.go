@@ -53,6 +53,7 @@ func ConcurrencySweep(functionName string, functionArgs map[string]interface{},s
 				log.Printf("Unable to log %v", err)
 			}
 		}
+		log.Printf("experiment data saved to %s", logfile)
 		close(logWriterWorking)
 	}()
 
