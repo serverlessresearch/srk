@@ -11,6 +11,15 @@ import (
 
 func ExperimentServer(progress *progress, logWriter chan string, alldone chan struct{}) {
 	var srv = http.Server{Addr: ":3000"}
+	var shutdownRequested = make(chan struct{})
+	go func() {
+		<-shutdownRequested
+		if err := srv.Shutdown(context.Background()); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+		}
+		close(alldone)
+	}()
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, err := fmt.Fprintf(w, "Serverless Experiment Controller")
 		if err != nil {
@@ -21,10 +30,7 @@ func ExperimentServer(progress *progress, logWriter chan string, alldone chan st
 	checkAllDone := func() {
 		if progress.allDone() {
 			log.Printf("finished processing responses for experiment %s", progress.experimentId)
-			if err := srv.Shutdown(context.Background()); err != nil {
-				log.Printf("HTTP server shutdown error: %v", err)
-			}
-			close(alldone)
+			close(shutdownRequested)
 		}
 	}
 
@@ -87,6 +93,11 @@ func ExperimentServer(progress *progress, logWriter chan string, alldone chan st
 
 	log.Print("starting server")
 	if err := srv.ListenAndServe(); err != nil {
-		log.Fatal(err)
+		switch err {
+		case http.ErrServerClosed:
+			log.Printf("server shutting down")
+		default:
+			log.Fatal(err)
+		}
 	}
 }
