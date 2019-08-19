@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package objstore;
+
+/* Design questions
+  - Do we want to be able to upload only part of an object
+  - What are we doing for permissions / ACLs
+  - What do we want to do for location, e.g., regions?
+  - How do object versions work?
+  - What concurrency models / consistency guarantees do we support
+  - How are we encoding error codes? Can we use standard rRPC status (https://github.com/grpc/grpc/blob/master/doc/statuscodes.md)
+*/
+
+
+service ObjectStore {
+    rpc createBucket(CreateBucketRequest) returns (Empty) {}
+    rpc ListBucket(ListBucketRequest) returns (ListBucketResponse) {}
+//    rpc get(GetRequest) returns GetResponse {}
+//    rpc put(PutRequest) returns PutResponse {}
+//    rpc listBucket() returns
+//    rpc deleteBucket
+}
+
+message CreateBucketRequest {
+    string bucketName = 1;
+    // TODO add permissions
+    // TODO add location
+}
+
+message ListBucketRequest {
+    string bucketName = 1;
+}
+
+message ListBucketResponse {
+    repeated string objectName = 1;
+}
+
+message Empty {}
