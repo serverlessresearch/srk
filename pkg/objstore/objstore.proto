@@ -15,9 +15,8 @@ package objstore;
 service ObjectStore {
     rpc createBucket(CreateBucketRequest) returns (Empty) {}
     rpc ListBucket(ListBucketRequest) returns (ListBucketResponse) {}
-//    rpc get(GetRequest) returns GetResponse {}
-//    rpc put(PutRequest) returns PutResponse {}
-//    rpc listBucket() returns
+    rpc get(GetRequest) returns (GetResponse) {}
+    rpc put(PutRequest) returns (PutResponse) {}
 //    rpc deleteBucket
 }
 
@@ -33,6 +32,25 @@ message ListBucketRequest {
 
 message ListBucketResponse {
     repeated string objectName = 1;
+}
+
+message GetRequest {
+    string bucketName = 1;
+    string objectName = 2;
+}
+
+message GetResponse {
+    bytes object = 1;
+}
+
+message PutRequest {
+    string bucketName = 1;
+    string objectName = 2;
+    bytes object = 3;
+}
+
+message PutResponse {
+    bytes object = 1;
 }
 
 message Empty {}

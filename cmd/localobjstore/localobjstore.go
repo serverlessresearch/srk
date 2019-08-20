@@ -5,9 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
+	// "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/status"
+	// "google.golang.org/grpc/status"
 	"google.golang.org/grpc/testdata"
 	pb "github.com/serverlessresearch/srk/pkg/objstore"
 	"io/ioutil"
@@ -49,8 +49,8 @@ func (o *localObjStore) ListBucket(ctx context.Context, r *pb.ListBucketRequest)
 }
 
 
-func newServer(storageDir string) *pb.ObjectStoreServer {
-	s := &localObjStore{storageDir:storageDir}
+func newServer(storageDir string) *localObjStore {
+	s := &localObjStore{storageDir: storageDir}
 	return s
 }
 
