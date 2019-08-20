@@ -5,9 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"google.golang.org/grpc"
-	// "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	// "google.golang.org/grpc/status"
 	"google.golang.org/grpc/testdata"
 	pb "github.com/serverlessresearch/srk/pkg/objstore"
 	"io/ioutil"
@@ -31,6 +29,7 @@ var (
 func (o *localObjStore) CreateBucket(ctx context.Context, r *pb.CreateBucketRequest) (*pb.Empty, error) {
 	err := os.Mkdir(path.Join(o.storageDir, r.GetBucketName()), 0755)
 	if err != nil {
+		// TODO: is this the right way to return error messages over gRPC?
 		return nil, err
 	}
 	return &pb.Empty{}, nil
@@ -49,11 +48,11 @@ func (o *localObjStore) ListBucket(ctx context.Context, r *pb.ListBucketRequest)
 }
 
 func (o *localObjStore) Get(ctx context.Context, r *pb.GetRequest) (*pb.GetResponse, error) {
-	dat, err := ioutil.ReadFile(path.Join(o.storageDir, r.GetBucketName(), r.GetObjectName())) 
+	data, err := ioutil.ReadFile(path.Join(o.storageDir, r.GetBucketName(), r.GetObjectName()))
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetResponse{ Data: dat }, nil
+	return &pb.GetResponse{ Data: data}, nil
 }
 
 func (o *localObjStore) Put(ctx context.Context, r *pb.PutRequest) (*pb.Empty, error) {

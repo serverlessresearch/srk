@@ -13,11 +13,11 @@ package objstore;
 
 
 service ObjectStore {
-    rpc createBucket(CreateBucketRequest) returns (Empty) {}
-    rpc ListBucket(ListBucketRequest) returns (ListBucketResponse) {}
-    rpc get(GetRequest) returns (GetResponse) {}
-    rpc put(PutRequest) returns (Empty) {}
-//    rpc deleteBucket
+    rpc createBucket (CreateBucketRequest) returns (Empty) {}
+    rpc listBucket (ListBucketRequest) returns (ListBucketResponse) {}
+    rpc get (GetRequest) returns (GetResponse) {}
+    rpc put (PutRequest) returns (Empty) {}
+    //    rpc deleteBucket
 }
 
 message CreateBucketRequest {
