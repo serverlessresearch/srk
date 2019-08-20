@@ -29,7 +29,7 @@ var (
 )
 
 func (o *localObjStore) CreateBucket(ctx context.Context, r *pb.CreateBucketRequest) (*pb.Empty, error) {
-	err := os.Mkdir(path.Join(o.storageDir, r.BucketName), 0755)
+	err := os.Mkdir(path.Join(o.storageDir, r.GetBucketName()), 0755)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func (o *localObjStore) CreateBucket(ctx context.Context, r *pb.CreateBucketRequ
 }
 
 func (o *localObjStore) ListBucket(ctx context.Context, r *pb.ListBucketRequest) (*pb.ListBucketResponse, error) {
-	files, err := ioutil.ReadDir(path.Join(o.storageDir, r.BucketName))
+	files, err := ioutil.ReadDir(path.Join(o.storageDir, r.GetBucketName()))
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,21 @@ func (o *localObjStore) ListBucket(ctx context.Context, r *pb.ListBucketRequest)
 	return &pb.ListBucketResponse{ObjectName:names}, nil
 }
 
+func (o *localObjStore) Get(ctx context.Context, r *pb.GetRequest) (*pb.GetResponse, error) {
+	dat, err := ioutil.ReadFile(path.Join(o.storageDir, r.GetBucketName(), r.GetObjectName())) 
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetResponse{ Data: dat }, nil
+}
+
+func (o *localObjStore) Put(ctx context.Context, r *pb.PutRequest) (*pb.Empty, error) {
+	err := ioutil.WriteFile(path.Join(o.storageDir, r.GetBucketName(), r.GetObjectName()), r.GetData(), 0644) 
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Empty{}, nil
+}
 
 func newServer(storageDir string) *localObjStore {
 	s := &localObjStore{storageDir: storageDir}

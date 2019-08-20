@@ -40,13 +40,13 @@ message GetRequest {
 }
 
 message GetResponse {
-    bytes object = 1;
+    bytes data = 1;
 }
 
 message PutRequest {
     string bucketName = 1;
     string objectName = 2;
-    bytes object = 3;
+    bytes data = 3;
 }
 
 message Empty {}
