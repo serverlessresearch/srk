@@ -16,7 +16,7 @@ service ObjectStore {
     rpc createBucket(CreateBucketRequest) returns (Empty) {}
     rpc ListBucket(ListBucketRequest) returns (ListBucketResponse) {}
     rpc get(GetRequest) returns (GetResponse) {}
-    rpc put(PutRequest) returns (PutResponse) {}
+    rpc put(PutRequest) returns (Empty) {}
 //    rpc deleteBucket
 }
 
@@ -47,10 +47,6 @@ message PutRequest {
     string bucketName = 1;
     string objectName = 2;
     bytes object = 3;
-}
-
-message PutResponse {
-    bytes object = 1;
 }
 
 message Empty {}
