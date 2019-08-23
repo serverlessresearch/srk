@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package objstore;
 
+import "google/protobuf/empty.proto";
+
 /* Design questions
   - Do we want to be able to upload only part of an object
   - What are we doing for permissions / ACLs
@@ -13,11 +15,13 @@ package objstore;
 
 
 service ObjectStore {
-    rpc createBucket (CreateBucketRequest) returns (Empty) {}
+    rpc createBucket (CreateBucketRequest) returns (google.protobuf.Empty) {}
     rpc listBucket (ListBucketRequest) returns (ListBucketResponse) {}
+    rpc deleteBucket (DeleteBucketRequest) returns (google.protobuf.Empty) {}
     rpc get (GetRequest) returns (GetResponse) {}
-    rpc put (PutRequest) returns (Empty) {}
-    //    rpc deleteBucket
+    rpc put (PutRequest) returns (google.protobuf.Empty) {}
+    rpc delete (DeleteRequest) returns (google.protobuf.Empty) {}
+       
 }
 
 message CreateBucketRequest {
@@ -49,4 +53,11 @@ message PutRequest {
     bytes data = 3;
 }
 
-message Empty {}
+message DeleteBucketRequest {
+    string bucketName = 1;
+}
+
+message DeleteRequest {
+    string bucketName = 1;
+    string objectName = 2;
+}
