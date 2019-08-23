@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"time"
 	"fmt"
+	"math"
 	"strconv"
 	"io/ioutil"
 	"sync/atomic"
@@ -180,8 +181,7 @@ func main() {
 		opts = append(opts, grpc.WithInsecure())
 	}
 
-	maxMsgSize := 1024*1024*1024
-	opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize), grpc.MaxCallSendMsgSize(maxMsgSize)))
+	opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(math.MaxInt32), grpc.MaxCallSendMsgSize(math.MaxInt32)))
 	conn, err := grpc.Dial(*serverAddr, opts...)
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
