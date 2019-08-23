@@ -86,10 +86,10 @@ func uploadFile(client pb.ObjectStoreClient, bucketName string, objectName strin
 	putObject(client, bucketName, objectName, data)
 }
 
-func runUpload(threadNum int, client pb.ObjectStoreClient, bucketName string, data []byte) {
+func runUpload(threadNum int, client pb.ObjectStoreClient, bucketName string) {
 	for time.Now().Before(endtime) {
 		objnum := atomic.AddInt64(&uploadCount, 1)
-		putObject(client, bucketName, strconv.FormatInt(objnum, 10), data)
+		putObject(client, bucketName, strconv.FormatInt(objnum, 10), objectData)
 	}
 	// Remember last done time
 	uploadFinish = time.Now()
@@ -132,7 +132,6 @@ func deleteObject(client pb.ObjectStoreClient, bucketName string, objectName str
 }
 
 // Global variables
-var objectSize uint64
 var objectData []byte
 var runningThreads, uploadCount, downloadCount, deleteCount int64
 var endtime, uploadFinish, downloadFinish, deleteFinish time.Time
@@ -180,6 +179,9 @@ func main() {
 	} else {
 		opts = append(opts, grpc.WithInsecure())
 	}
+
+	maxMsgSize := 1024*1024*1024
+	opts = append(opts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize), grpc.MaxCallSendMsgSize(maxMsgSize)))
 	conn, err := grpc.Dial(*serverAddr, opts...)
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
@@ -187,14 +189,17 @@ func main() {
 	defer conn.Close()
 	client := pb.NewObjectStoreClient(conn)
 
+	var objectSize uint64
 	if objectSize, err = bytefmt.ToBytes(*size); err != nil {
 		log.Fatalf("Invalid -z argument for object size: %v", err)
 	}
+
+	fmt.Println(fmt.Sprintf("Parameters: bucket=%s, duration=%d seconds, threads=%d, loops=%d, size=%s", *bucketName, *durationSecs, *threads, *loops, *size))
 	// Initialize data for the bucket
 	objectData = make([]byte, objectSize)
 	rand.Read(objectData)
 
-	// Create the bucket and delete all the objects
+	// Create the bucket
 	createBucket(client, *bucketName) 
 
 	// Loop running the tests
@@ -206,7 +211,7 @@ func main() {
 		starttime := time.Now()
 		endtime = starttime.Add(time.Second * time.Duration(*durationSecs))
 		for n := 1; n <= *threads; n++ {
-			go runUpload(n, client, *bucketName, objectData)
+			go runUpload(n, client, *bucketName)
 		}
 
 		// Wait for it to finish
@@ -280,6 +285,7 @@ func main() {
 		fmt.Println(l.String())
 	}
 
+	deleteBucket(client, *bucketName)
 	// All done
 	fmt.Println("Benchmark completed.")
 }

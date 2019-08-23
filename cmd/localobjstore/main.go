@@ -39,6 +39,8 @@ func main() {
 		}
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
+	maxMsgSize := 1024*1024*1024
+	opts = append(opts, grpc.MaxRecvMsgSize(maxMsgSize))
 	grpcServer := grpc.NewServer(opts...)
 	pb.RegisterObjectStoreServer(grpcServer, newServer("/tmp/objfiles"))
 	grpcServer.Serve(lis)
