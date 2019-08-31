@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package objstore;
 
+// import to use google.protobuf.Empty which is a generic empty message
 import "google/protobuf/empty.proto";
 
 /* Design questions
@@ -13,51 +14,79 @@ import "google/protobuf/empty.proto";
   - How are we encoding error codes? Can we use standard rRPC status (https://github.com/grpc/grpc/blob/master/doc/statuscodes.md)
 */
 
-
+// An object store gRPC service interface
 service ObjectStore {
+    /* Methods below are sychronous rpc that the client sends a request to the server and
+     * gets a single response back.  */
+    // Create a bucket
     rpc createBucket (CreateBucketRequest) returns (google.protobuf.Empty) {}
+    // List the names of all objects in a bucket
     rpc listBucket (ListBucketRequest) returns (ListBucketResponse) {}
+    // Delete a bucket
     rpc deleteBucket (DeleteBucketRequest) returns (google.protobuf.Empty) {}
+    // Get an object in a bucket
     rpc get (GetRequest) returns (GetResponse) {}
+    // Put an object in a bucket
     rpc put (PutRequest) returns (google.protobuf.Empty) {}
+    // Delete an object in a bucket
     rpc delete (DeleteRequest) returns (google.protobuf.Empty) {}
        
 }
 
+// An request to create a bucket
 message CreateBucketRequest {
+    // The bucket name
     string bucketName = 1;
     // TODO add permissions
     // TODO add location
 }
 
+// An request to list a bucket
 message ListBucketRequest {
+    // The bucket name
     string bucketName = 1;
 }
 
+// An response to ListBucketRequest
 message ListBucketResponse {
+    // Zero or more object names
     repeated string objectName = 1;
 }
 
+// An request to get an object
 message GetRequest {
+    // The bucket name
     string bucketName = 1;
+    // The object name
     string objectName = 2;
 }
 
+// An response to GetRequest
 message GetResponse {
+    // The object data
     bytes data = 1;
 }
 
+// An request to put an object
 message PutRequest {
+    // The bucket name
     string bucketName = 1;
+    // The object name
     string objectName = 2;
+    // The object data to be put
     bytes data = 3;
 }
 
+// An request to delete a bucket
 message DeleteBucketRequest {
+    // The bucket name
     string bucketName = 1;
 }
 
+// An request to delete an object
 message DeleteRequest {
+    // The bucket name
     string bucketName = 1;
+    // The object name
     string objectName = 2;
 }

@@ -26,12 +26,11 @@ var (
 	caFile             = flag.String("ca_file", "", "The file containing the CA root cert file")
 	serverAddr         = flag.String("server_addr", "127.0.0.1:10000", "The server address in the format of host:port")
 	serverHostOverride = flag.String("server_host_override", "x.test.youtube.com", "The server name use to verify the hostname returned by TLS handshake")
-	
-	bucketName		   = flag.String("bucket_name", "/", "Object storage bucket name")
+	bucketName         = flag.String("bucket_name", "/", "Object storage bucket name")
 	durationSecs	   = flag.Int("duration", 10, "Duration of each test in seconds")
 	size               = flag.String("size", "1M", "Size of objects in bytes with postfix K, M, and G")
-	threads  		   = flag.Int("threads", 1, "Number of threads to run")
-	loops			   = flag.Int("loops", 1, "Number of times to repeat test")
+	threads            = flag.Int("threads", 1, "Number of threads to run")
+	loops              = flag.Int("loops", 1, "Number of times to repeat test")
 )
 
 func createBucket(client pb.ObjectStoreClient, bucketName string) {
