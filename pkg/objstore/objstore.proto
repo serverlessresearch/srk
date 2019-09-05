@@ -1,3 +1,5 @@
+// After updating this file invoke the protoc compiler using the command: /scripts/pb_compile.sh
+
 syntax = "proto3";
 
 package objstore;
@@ -5,19 +7,8 @@ package objstore;
 // import to use google.protobuf.Empty which is a generic empty message
 import "google/protobuf/empty.proto";
 
-/* Design questions
-  - Do we want to be able to upload only part of an object
-  - What are we doing for permissions / ACLs
-  - What do we want to do for location, e.g., regions?
-  - How do object versions work?
-  - What concurrency models / consistency guarantees do we support
-  - How are we encoding error codes? Can we use standard rRPC status (https://github.com/grpc/grpc/blob/master/doc/statuscodes.md)
-*/
-
 // An object store gRPC service interface
 service ObjectStore {
-    /* Methods below are sychronous rpc that the client sends a request to the server and
-     * gets a single response back.  */
     // Create a bucket
     rpc createBucket (CreateBucketRequest) returns (google.protobuf.Empty) {}
     // List the names of all objects in a bucket
@@ -37,8 +28,6 @@ service ObjectStore {
 message CreateBucketRequest {
     // The bucket name
     string bucketName = 1;
-    // TODO add permissions
-    // TODO add location
 }
 
 // An request to list a bucket

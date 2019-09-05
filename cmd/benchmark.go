@@ -1,3 +1,4 @@
+// TODO this benchmark program needs to be integrated so that it can run in cloud functions.
 package main
 
 import (

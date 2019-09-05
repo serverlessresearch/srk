@@ -1,3 +1,5 @@
+// LocalObjStore provides a simple filesystem-based implementation of the SRK Object Storage API defined
+// in the protocol buffer specification (https://github.com/serverlessresearch/srk/blob/master/pkg/objstore/objstore.proto).
 package main
 
 import (
@@ -20,7 +22,7 @@ import (
 )
 
 // The information necessary for local object store server
-type localObjStore struct {
+type LocalObjStore struct {
 	// The storage directory
 	storageDir string
 }
@@ -41,7 +43,7 @@ func errorHandler (err error) (error) {
 
 // Create a bucket by creating a directory whose name is the same as the bucket name on local file system,
 // Returns a gRPC error code if failed to create the directory or the directory already exits 
-func (o *localObjStore) CreateBucket(ctx context.Context, r *pb.CreateBucketRequest) (*empty.Empty, error) {
+func (o *LocalObjStore) CreateBucket(ctx context.Context, r *pb.CreateBucketRequest) (*empty.Empty, error) {
 	err := os.Mkdir(path.Join(o.storageDir, r.GetBucketName()), 0755)
 	if err != nil {
 		return nil, errorHandler(err)
@@ -51,7 +53,7 @@ func (o *localObjStore) CreateBucket(ctx context.Context, r *pb.CreateBucketRequ
 
 // List a bucket by listing all the filenames in the directory,
 // Return a respons that contains all the names if no error,
-func (o *localObjStore) ListBucket(ctx context.Context, r *pb.ListBucketRequest) (*pb.ListBucketResponse, error) {
+func (o *LocalObjStore) ListBucket(ctx context.Context, r *pb.ListBucketRequest) (*pb.ListBucketResponse, error) {
 	files, err := ioutil.ReadDir(path.Join(o.storageDir, r.GetBucketName()))
 	if err != nil {
 		return nil, errorHandler(err)
@@ -64,7 +66,7 @@ func (o *localObjStore) ListBucket(ctx context.Context, r *pb.ListBucketRequest)
 }
 
 // Delete a bucket by erasing the whole directory including all files under it
-func (o *localObjStore) DeleteBucket(ctx context.Context, r *pb.DeleteBucketRequest) (*empty.Empty, error) {
+func (o *LocalObjStore) DeleteBucket(ctx context.Context, r *pb.DeleteBucketRequest) (*empty.Empty, error) {
 	// S3 doesn't empty the bucket/directory,
 	// Instead it first check whether the bucket is empty or not, throw an error if not
 	err := os.RemoveAll(path.Join(o.storageDir, r.GetBucketName()))
@@ -75,7 +77,7 @@ func (o *localObjStore) DeleteBucket(ctx context.Context, r *pb.DeleteBucketRequ
 }
 
 // Get an object by reading the local file and return an response that wraps the content if no error
-func (o *localObjStore) Get(ctx context.Context, r *pb.GetRequest) (*pb.GetResponse, error) {
+func (o *LocalObjStore) Get(ctx context.Context, r *pb.GetRequest) (*pb.GetResponse, error) {
 	data, err := ioutil.ReadFile(path.Join(o.storageDir, r.GetBucketName(), r.GetObjectName()))
 	if err != nil {
 		return nil, errorHandler(err)
@@ -85,7 +87,7 @@ func (o *localObjStore) Get(ctx context.Context, r *pb.GetRequest) (*pb.GetRespo
 
 // Put an object by writing bytes of data into a file whose name is the same as the object name.
 // It overwrites the object if already exits
-func (o *localObjStore) Put(ctx context.Context, r *pb.PutRequest) (*empty.Empty, error) {
+func (o *LocalObjStore) Put(ctx context.Context, r *pb.PutRequest) (*empty.Empty, error) {
 	err := ioutil.WriteFile(path.Join(o.storageDir, r.GetBucketName(), r.GetObjectName()), r.GetData(), 0644)
 	if err != nil {
 		return nil, errorHandler(err)
@@ -94,7 +96,7 @@ func (o *localObjStore) Put(ctx context.Context, r *pb.PutRequest) (*empty.Empty
 }
 
 // Delete an object by removing the local file
-func (o *localObjStore) Delete(ctx context.Context, r *pb.DeleteRequest) (*empty.Empty, error) {
+func (o *LocalObjStore) Delete(ctx context.Context, r *pb.DeleteRequest) (*empty.Empty, error) {
 	err := os.Remove(path.Join(o.storageDir, r.GetBucketName(), r.GetObjectName()))
 	if err != nil {
 		return nil, errorHandler(err)
@@ -103,8 +105,8 @@ func (o *localObjStore) Delete(ctx context.Context, r *pb.DeleteRequest) (*empty
 }
 
 // Initialize a local object store server struct and return its reference
-func newServer(storageDir string) *localObjStore {
-	s := &localObjStore{storageDir: storageDir}
+func newServer(storageDir string) *LocalObjStore {
+	s := &LocalObjStore{storageDir: storageDir}
 	return s
 }
 
@@ -145,5 +147,8 @@ func main() {
 	// Create a new gRPC local object store server
 	grpcServer := grpc.NewServer(opts...)
 	pb.RegisterObjectStoreServer(grpcServer, newServer("/tmp/objfiles"))
-	grpcServer.Serve(lis)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
