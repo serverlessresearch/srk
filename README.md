@@ -5,14 +5,26 @@ It aims to make it easy to innovate on services typically offered by cloud provi
 readily hackable versions of cloud functions or cloud object storage. SRK also plans to include common benchmarks
 and operational tools, so that launching and evaluating a multi-tenant serverless service is quick and easy.
 
-## Build
-To build this project, just run:
+## Build/Install
+This project is structured as a Go module, this means that it manages its own
+dependencies (via the go.mod and go.sum files) and does not need to be cloned
+into your GOPATH. To build this project, clone the repo anywhere you like and
+run:
 
   go build
 
 This will create the srk binary locally. To install to your GOPATH:
 
   go install
+
+For more details about Go modules, see this
+[post](https://github.com/golang/go/wiki/Modules).
+
+### Dependencies
+This project requires Go version 1.13 or greater.
+
+All Go package dependencies will be installed automatically when you run 'go
+build'.
 
 ## Examples
 
