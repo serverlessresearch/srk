@@ -5,6 +5,15 @@ It aims to make it easy to innovate on services typically offered by cloud provi
 readily hackable versions of cloud functions or cloud object storage. SRK also plans to include common benchmarks
 and operational tools, so that launching and evaluating a multi-tenant serverless service is quick and easy.
 
+## Build
+To build this project, just run:
+
+  go build
+
+This will create the srk binary locally. To install to your GOPATH:
+
+  go install
+
 ## Examples
 
 ### Cloud Function Benchmark
