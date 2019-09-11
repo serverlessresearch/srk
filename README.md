@@ -21,9 +21,8 @@ This will create the srk binary locally. To install to your GOPATH:
 Create a zip file containing the example workload:
 
 ```
-./srk package \
+./srk function create \
   --source examples/cfbench/sleep_workload.py \
-  --target sleep.zip \
   --include cfbench
 ```
 
@@ -35,7 +34,7 @@ aws lambda create-function \
   --handler sleep_workload.lambda_handler \
   --timeout 10 \
   --role {{YOUR_ROLE_ARN_HERE}} \
-  --zip-file fileb://$(pwd)/sleep.zip \
+  --zip-file fileb://$(pwd)/build/functions/sleep_workload.zip \
   --memory-size 128 \
   --vpc-config SubnetIds={{YOUR_SUBNET_IDS_HERE}},SecurityGroupIds={{YOUR_SECURITY_GROUP_IDS_HERE}}
 ```
