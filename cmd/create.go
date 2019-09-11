@@ -10,8 +10,12 @@ import (
 
 	"github.com/serverlessresearch/srk/pkg/cfpackage"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
+
+var createCmdConfig struct {
+	source  string
+	include string
+}
 
 var createCmd = &cobra.Command{
 	Use:   "create",
@@ -19,10 +23,9 @@ var createCmd = &cobra.Command{
 	Long: `This will package up your function with any needed boilerplate and
 upload it to the configured FaaS provider.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		source := viper.GetString("source")
-		includes := strings.Split(viper.GetString("include"), ",")
+		includes := strings.Split(createCmdConfig.include, ",")
 		target := "./build/functions/" +
-			strings.TrimSuffix(path.Base(source), path.Ext(source)) +
+			strings.TrimSuffix(path.Base(createCmdConfig.source), path.Ext(createCmdConfig.source)) +
 			".zip"
 
 		// Make the build directory if needed (users can clean the system by simply 'rm -r build')
@@ -37,9 +40,6 @@ upload it to the configured FaaS provider.`,
 func init() {
 	functionCmd.AddCommand(createCmd)
 
-	createCmd.Flags().StringP("source", "s", "", "source directory or file")
-	viper.BindPFlag("source", createCmd.Flags().Lookup("source"))
-
-	createCmd.Flags().StringP("include", "i", "", "what to include, e.g., bench")
-	viper.BindPFlag("include", createCmd.Flags().Lookup("include"))
+	createCmd.Flags().StringVarP(&createCmdConfig.source, "source", "s", "", "source directory or file")
+	createCmd.Flags().StringVarP(&createCmdConfig.include, "include", "i", "", "what to include, e.g., bench")
 }
