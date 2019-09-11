@@ -1,0 +1,5 @@
+provider:
+  faas :
+    type : openLambda 
+    olcmd : /data/repos/npol/ol
+    oldir : /data/repos/npol/default-ol

@@ -2,3 +2,4 @@
 srk
 *.pdf
 log.txt
+build/
