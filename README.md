@@ -5,6 +5,12 @@ It aims to make it easy to innovate on services typically offered by cloud provi
 readily hackable versions of cloud functions or cloud object storage. SRK also plans to include common benchmarks
 and operational tools, so that launching and evaluating a multi-tenant serverless service is quick and easy.
 
+## Configuration
+SRK comes with a default set of parameters in 'srk/configs/srk.yaml'. To get
+started, you will need to add configuration information for your desired
+provider. Copy the default config to 'srk/configs/user/srk.yaml' and edit as
+needed before proceeding. 
+
 ## Build
 To build this project, just run:
 
