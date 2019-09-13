@@ -29,11 +29,10 @@ service :
       # Your arn role.
       # e.g. `arn:aws:iam::123459789012:role/service-role/my-service-role-ae04d032`
       role : null
-      # Optional vpc/security-group setup to use. Will be passed to the AWS
-      # '--vpc-config' option when creating the function.
-      # e.g. `SubnetIds=sg-4cf9dbb40b73ca192,SecurityGroupIds=sg-016fb0eb84b2f3fee`
+      # Optional vpc/security-group setup to use.
+      # e.g.: "vpc-123456789abcdef,sg-123456789abcdef"
       vpc-config : null
-
+        
   # Key-Value object stores
   objStore :
     # XXX These are not implemented yet

@@ -5,13 +5,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/lambda"
 	"log"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/lambda"
 )
 
 func genExperimentId() string {
@@ -23,6 +24,7 @@ func genExperimentId() string {
 }
 
 type stringSet map[string]struct{}
+
 var member struct{}
 
 func (s *stringSet) add(key string) {
@@ -135,8 +137,6 @@ func (p *progress) getConcurrency() int {
 	return concurrency
 }
 
-
-
 func invokeMulti(experimentId string, trackingUrl string, functionName string, functionArgs map[string]interface{}, sweepDefinition *[]TransitionPoint, progress *progress) {
 	sess := session.Must(session.NewSession())
 	client := lambda.New(sess, &aws.Config{Region: aws.String("us-west-2")})
@@ -146,7 +146,7 @@ func invokeMulti(experimentId string, trackingUrl string, functionName string, f
 			invocationId := progress.nextInvocationSeq()
 			uuid := fmt.Sprintf("%s:%d", experimentId, invocationId)
 			args := map[string]interface{}{
-				"uuid": uuid,
+				"uuid":         uuid,
 				"experimentId": experimentId,
 				"tracking_url": trackingUrl,
 			}
@@ -159,7 +159,7 @@ func invokeMulti(experimentId string, trackingUrl string, functionName string, f
 			}
 			payload, err := json.Marshal(args)
 
-			_, err = client.Invoke(&lambda.InvokeInput{FunctionName: aws.String(functionName), Payload: payload, InvocationType: aws.String("Event") })
+			_, err = client.Invoke(&lambda.InvokeInput{FunctionName: aws.String(functionName), Payload: payload, InvocationType: aws.String("Event")})
 			if err != nil {
 				log.Fatal("Error invoking function", err)
 			}
@@ -174,12 +174,12 @@ func invokeMulti(experimentId string, trackingUrl string, functionName string, f
 		timer := time.NewTimer((*sweepDefinition)[nextIndex].when)
 		for {
 			select {
-			case <- progress.updateNotice:
+			case <-progress.updateNotice:
 				launched := progress.getConcurrency()
 				if launched < targetConcurrency {
 					invoke(targetConcurrency - launched)
 				}
-			case <- timer.C:
+			case <-timer.C:
 				targetConcurrency = (*sweepDefinition)[nextIndex].concurrency
 				log.Printf("update concurrency to %d\n", targetConcurrency)
 				nextIndex += 1

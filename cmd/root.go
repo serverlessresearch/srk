@@ -49,6 +49,8 @@ func initConfig() {
 	// Collects all srk-provided libraries.
 	viper.SetDefault("includeDir", "./includes")
 
+	viper.SetDefault("service.faas.awsLambda.region", "us-west-2")
+
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)

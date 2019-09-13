@@ -70,7 +70,8 @@ func configureCreate() {
 	case "awsLambda":
 		createCmdConfig.service = awslambda.NewConfig(
 			viper.GetString("service.faas.awsLambda.role"),
-			viper.GetString("service.faas.awsLambda.vpc-config"))
+			viper.GetString("service.faas.awsLambda.vpc-config"),
+			viper.GetString("service.faas.awsLambda.region"))
 	default:
 		panic("Unrecognized FaaS service: " + serviceName)
 	}
