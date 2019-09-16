@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	awslambda "github.com/serverlessresearch/srk/pkg/aws-lambda"
-	"github.com/serverlessresearch/srk/pkg/openlambda"
 	"github.com/serverlessresearch/srk/pkg/srk"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -30,7 +28,8 @@ var createCmd = &cobra.Command{
 upload it to the configured FaaS provider.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		configureCreate()
+		createCmdConfig.service = getFaasService()
+		defer createCmdConfig.service.Destroy()
 
 		funcName := strings.TrimSuffix(path.Base(createCmdConfig.source), path.Ext(createCmdConfig.source))
 		includes := strings.Split(createCmdConfig.include, ",")
@@ -46,35 +45,6 @@ upload it to the configured FaaS provider.`,
 			return
 		}
 	},
-}
-
-// Runs only if the create command is invoked and after any cobra/viper setup
-// has occured
-func configureCreate() {
-	// Setup the default FaaS service
-	providerName := viper.GetString("default-provider")
-	if providerName == "" {
-		panic("No default provider in configuration")
-	}
-
-	serviceName := viper.GetString("providers." + providerName + ".faas")
-	if serviceName == "" {
-		panic("Provider \"" + providerName + "\" does not provide a FaaS service")
-	}
-
-	switch serviceName {
-	case "openLambda":
-		createCmdConfig.service = openlambda.NewConfig(
-			viper.GetString("service.faas.openLambda.olcmd"),
-			viper.GetString("service.faas.openLambda.oldir"))
-	case "awsLambda":
-		createCmdConfig.service = awslambda.NewConfig(
-			viper.GetString("service.faas.awsLambda.role"),
-			viper.GetString("service.faas.awsLambda.vpc-config"),
-			viper.GetString("service.faas.awsLambda.region"))
-	default:
-		panic("Unrecognized FaaS service: " + serviceName)
-	}
 }
 
 func init() {

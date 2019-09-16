@@ -2,18 +2,16 @@
 package cmd
 
 import (
-	"encoding/json"
-	"fmt"
-	"log"
 	"net"
 
 	"github.com/serverlessresearch/srk/pkg/cfbench"
+	"github.com/serverlessresearch/srk/pkg/srk"
 	"github.com/spf13/cobra"
 )
 
 // Filled in by cobra argument parsing in init()
 var benchCmdConfig struct {
-	mode         string
+	bench        string
 	functionName string
 	functionArgs string
 	benchParams  string
@@ -29,35 +27,64 @@ var benchCmd = &cobra.Command{
 functions and configured the provider.`,
 	Run: func(cmd *cobra.Command, args []string) {
 
+		provider := getProvider()
+		defer destroyProvider(provider)
+
+		var bench srk.Benchmark
+		benchArgs := srk.BenchArgs{
+			benchCmdConfig.functionName,
+			benchCmdConfig.functionArgs,
+			benchCmdConfig.benchParams,
+			benchCmdConfig.trackingUrl,
+			benchCmdConfig.bench + ".out",
+		}
+
+		switch benchCmdConfig.bench {
+		case "oneShot":
+			var err error
+			bench, err = cfbench.NewOneShot()
+			if err != nil {
+				panic("Failed to initialize OneShot benchmark")
+			}
+
+		case "concurrency_scan":
+			panic("Concurrency scan not implemented yet")
+		default:
+			panic("Unrecognized benchmark: " + benchCmdConfig.bench)
+		}
+
+		if err := bench.RunBench(provider, &benchArgs); err != nil {
+			panic("Benchmark Failed")
+		}
 		//Parse the benchmark args
 		// XXX this should probably be handled by cfbench
-		var scanArgs cfbench.ConcurrencySweepArgs
-		if err := json.Unmarshal([]byte(benchCmdConfig.benchParams), &scanArgs); err != nil {
-			panic(err)
-		}
-
-		var functionArgsData map[string]interface{}
-		if err := json.Unmarshal([]byte(benchCmdConfig.functionArgs), &functionArgsData); err != nil {
-			panic(err)
-		}
-
-		if benchCmdConfig.trackingUrl == "" {
-			ip := getLocalIp()
-			benchCmdConfig.trackingUrl = fmt.Sprintf("http://%s:3000/", ip)
-		}
-		log.Printf("using tracking url %s", benchCmdConfig.trackingUrl)
-
-		switch benchCmdConfig.mode {
-		case "concurrency_scan":
-			transitions := cfbench.GenSweepTransitions(scanArgs)
-			cfbench.ConcurrencySweep(benchCmdConfig.functionName,
-				functionArgsData,
-				transitions,
-				benchCmdConfig.trackingUrl,
-				benchCmdConfig.logFile)
-		default:
-			panic("unknown mode")
-		}
+		// var scanArgs cfbench.ConcurrencySweepArgs
+		// if err := json.Unmarshal([]byte(benchCmdConfig.benchParams), &scanArgs); err != nil {
+		// 	panic(err)
+		// }
+		//
+		// var functionArgsData map[string]interface{}
+		// if err := json.Unmarshal([]byte(benchCmdConfig.functionArgs), &functionArgsData); err != nil {
+		// 	panic(err)
+		// }
+		//
+		// if benchCmdConfig.trackingUrl == "" {
+		// 	ip := getLocalIp()
+		// 	benchCmdConfig.trackingUrl = fmt.Sprintf("http://%s:3000/", ip)
+		// }
+		// log.Printf("using tracking url %s", benchCmdConfig.trackingUrl)
+		//
+		// switch benchCmdConfig.mode {
+		// case "concurrency_scan":
+		// 	transitions := cfbench.GenSweepTransitions(scanArgs)
+		// 	cfbench.ConcurrencySweep(benchCmdConfig.functionName,
+		// 		functionArgsData,
+		// 		transitions,
+		// 		benchCmdConfig.trackingUrl,
+		// 		benchCmdConfig.logFile)
+		// default:
+		// 	panic("unknown mode")
+		// }
 
 	},
 }
@@ -65,7 +92,7 @@ functions and configured the provider.`,
 func init() {
 	rootCmd.AddCommand(benchCmd)
 
-	benchCmd.Flags().StringVarP(&benchCmdConfig.mode, "mode", "m", "", "Mode of benchmark")
+	benchCmd.Flags().StringVarP(&benchCmdConfig.bench, "benchmark", "b", "", "Which benchmark to run")
 	benchCmd.Flags().StringVarP(&benchCmdConfig.functionName, "function-name", "n", "", "The function to run")
 	benchCmd.Flags().StringVarP(&benchCmdConfig.functionArgs, "function-args", "a", "{}", "Arguments to the function")
 	benchCmd.Flags().StringVarP(&benchCmdConfig.benchParams, "params", "p", "{}", "Parameters for the benchmark")

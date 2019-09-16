@@ -2,26 +2,33 @@ package openlambda
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+
+	"github.com/serverlessresearch/srk/pkg/srk"
 )
 
-type OlConfig struct {
+type olConfig struct {
 	// Command to run base openlambda manager ('ol')
 	cmd string
 	// Working directory for openlambda
 	dir string
+	// Keeps track of if we've started an ol worker or not
+	sessionStarted bool
 }
 
-func NewConfig(cmd string, dir string) *OlConfig {
-	return &OlConfig{cmd, dir}
+func NewConfig(cmd string, dir string) srk.FaasService {
+	return &olConfig{cmd, dir, false}
 }
 
-func (self *OlConfig) Install(rawDir string) error {
+func (self *olConfig) Install(rawDir string) error {
 	tarPath := filepath.Clean(rawDir) + ".tar.gz"
 	rerr := tarRaw(rawDir, tarPath)
 	if rerr != nil {
@@ -38,6 +45,56 @@ func (self *OlConfig) Install(rawDir string) error {
 		return err
 	}
 	fmt.Println("Function installed to: " + installPath)
+	return nil
+}
+
+func (self *olConfig) Destroy() {
+	if self.sessionStarted {
+		self.terminateOlWorker()
+	}
+}
+
+func (self *olConfig) Invoke(fName string, args string) (resp *bytes.Buffer, rerr error) {
+	if !self.sessionStarted {
+		self.launchOlWorker()
+	}
+
+	olResp, err := http.Post("http://localhost:5000/run/"+fName, "application/json", strings.NewReader(args))
+	if err != nil {
+		fmt.Printf("Failed to POST request to ol worker: %v\n", err)
+		return nil, err
+	}
+	respBuf := new(bytes.Buffer)
+	respBuf.ReadFrom(olResp.Body)
+
+	return respBuf, nil
+}
+
+// Launch the open lambda worker process in the background. Returns when the
+// worker is ready to receive requests. OL does the hard work of keeping track
+// of worker PIDs and stuff so we don't have to.
+func (self *olConfig) launchOlWorker() error {
+	self.sessionStarted = true
+	cmd := exec.Command("sudo", "sh", "-c",
+		self.cmd+" worker -d --path="+self.dir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		fmt.Printf("Failed to launch the open lambda worker: %v\n", err)
+		fmt.Printf(string(out))
+		return err
+	}
+	return nil
+}
+
+// Clean up the open lambda worker launched by launchOlWorker()
+func (self *olConfig) terminateOlWorker() error {
+	cmd := exec.Command("sudo", "sh", "-c",
+		self.cmd+" kill --path="+self.dir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		fmt.Printf("Failed to terminate the open lambda worker: %v\n", err)
+		fmt.Printf(string(out))
+		return err
+	}
+	self.sessionStarted = false
 	return nil
 }
 

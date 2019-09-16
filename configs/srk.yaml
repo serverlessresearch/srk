@@ -1,11 +1,11 @@
 # This provider will be used by srk commands unless specifically overwritten
-default-provider : "all-aws"
+default-provider : "aws"
 
 # A provider is a complete set of services that all work together. Typically, a
 # provider will have one implementation of each service category (although it
 # is possible to omit service categories of they are not needed)
 providers :
-  - name : "all-aws"
+  - name : "aws"
     faas : "awsLambda"
     objStore : "s3"
   - name : "local"
@@ -32,6 +32,9 @@ service :
       # Optional vpc/security-group setup to use.
       # e.g.: "vpc-123456789abcdef,sg-123456789abcdef"
       vpc-config : null
+    global:
+      limitMB: 128
+      limitTime: 10
         
   # Key-Value object stores
   objStore :

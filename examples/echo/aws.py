@@ -1,3 +1,3 @@
 import echo
-def f(event):
+def f(event, context):
     return echo.echo(event)
