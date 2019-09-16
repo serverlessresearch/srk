@@ -28,13 +28,17 @@ func NewConfig(cmd string, dir string) srk.FaasService {
 	return &olConfig{cmd, dir, false}
 }
 
-func (self *olConfig) Install(rawDir string) error {
+func (self *olConfig) Package(rawDir string) (string, error) {
 	tarPath := filepath.Clean(rawDir) + ".tar.gz"
 	rerr := tarRaw(rawDir, tarPath)
 	if rerr != nil {
-		return rerr
+		return "", rerr
 	}
-	fmt.Println("Created Open Lambda tar file at: " + tarPath)
+	return tarPath, nil
+}
+
+func (self *olConfig) Install(rawDir string) error {
+	tarPath := filepath.Clean(rawDir) + ".tar.gz"
 
 	installPath := filepath.Join(self.dir, "registry", filepath.Base(tarPath))
 	//OL is managed by root so we have to use sudo commands for everything
@@ -44,7 +48,7 @@ func (self *olConfig) Install(rawDir string) error {
 		fmt.Printf(string(out))
 		return err
 	}
-	fmt.Println("Function installed to: " + installPath)
+	fmt.Println("Open Lambda function installed to: " + installPath)
 	return nil
 }
 

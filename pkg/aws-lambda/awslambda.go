@@ -39,12 +39,17 @@ func NewConfig(role string, vpcConfig string, region string) srk.FaasService {
 	}
 }
 
-func (self *awsLambdaConfig) Install(rawDir string) (rerr error) {
+func (self *awsLambdaConfig) Package(rawDir string) (zipDir string, rerr error) {
 	zipPath := filepath.Clean(rawDir) + ".zip"
 	rerr = zipRaw(rawDir, zipPath)
-	if rerr == nil {
-		fmt.Println("Created AWS Lambda zip file at: " + zipPath)
+	if rerr != nil {
+		return "", rerr
 	}
+	return zipPath, nil
+}
+
+func (self *awsLambdaConfig) Install(rawDir string) (rerr error) {
+	zipPath := filepath.Clean(rawDir) + ".zip"
 
 	return self.awsInstall(zipPath)
 }

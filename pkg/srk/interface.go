@@ -14,10 +14,15 @@ type Provider struct {
 }
 
 type FaasService interface {
-	// Install a function to the desired FaaS service
-	// inputPath - path to the input function source
-	// funcName - FaaS service visible name for the function
-	// includes - Any extra boilerplate to include (defined in cfincludes)
+	// Package up everything needed to install the function but don't actually
+	// install it to the service. rawDir may be assumed to be a unique path for
+	// this function. The package location should be determinsitically derived
+	// from the rawDir path.
+	// Returns: Path to the newly created package
+	Package(rawDir string) (pkgPath string, rerr error)
+
+	// Install a function to the desired FaaS service. It is assumed that
+	// Package() has already been called on this rawDir.
 	Install(rawDir string) (rerr error)
 
 	// Invoke function
