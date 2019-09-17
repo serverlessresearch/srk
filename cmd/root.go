@@ -49,7 +49,9 @@ func initConfig() {
 	// Collects all srk-provided libraries.
 	viper.SetDefault("includeDir", "./includes")
 
+	// Order of precedence: ENV, srk.yaml, "us-west-2"
 	viper.SetDefault("service.faas.awsLambda.region", "us-west-2")
+	viper.BindEnv("service.faas.awsLambda.region", "AWS_DEFAULT_REGION")
 
 	if cfgFile != "" {
 		// Use config file from the flag.
