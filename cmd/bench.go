@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"errors"
 	"net"
 
 	"github.com/serverlessresearch/srk/pkg/cfbench"
@@ -11,7 +12,7 @@ import (
 
 // Filled in by cobra argument parsing in init()
 var benchCmdConfig struct {
-	bench        string
+	benchName    string
 	functionName string
 	functionArgs string
 	benchParams  string
@@ -25,7 +26,7 @@ var benchCmd = &cobra.Command{
 	Short: "Run a benchmark",
 	Long: `Run the selected benchmark. You must have already created any needed
 functions and configured the provider.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 
 		provider := getProvider()
 		defer destroyProvider(provider)
@@ -36,28 +37,28 @@ functions and configured the provider.`,
 			benchCmdConfig.functionArgs,
 			benchCmdConfig.benchParams,
 			benchCmdConfig.trackingUrl,
-			benchCmdConfig.bench + ".out",
+			benchCmdConfig.benchName + ".out",
 		}
 
-		switch benchCmdConfig.bench {
-		case "oneShot":
+		switch benchCmdConfig.benchName {
+		case "one-shot":
 			var err error
 			bench, err = cfbench.NewOneShot()
 			if err != nil {
 				panic("Failed to initialize OneShot benchmark")
 			}
 
-		case "concurrency_scan":
-			panic("Concurrency scan not implemented yet")
+		case "concurrency-scan":
+			return errors.New("Concurrency scan not implemented yet")
 		default:
-			panic("Unrecognized benchmark: " + benchCmdConfig.bench)
+			return errors.New("Unrecognized benchmark: " + benchCmdConfig.benchName)
 		}
 
 		if err := bench.RunBench(provider, &benchArgs); err != nil {
-			panic("Benchmark Failed")
+			return err
 		}
 		//Parse the benchmark args
-		// XXX this should probably be handled by cfbench
+		// XXX this is here as documentation for when we get around to implementing concurrency-sweep
 		// var scanArgs cfbench.ConcurrencySweepArgs
 		// if err := json.Unmarshal([]byte(benchCmdConfig.benchParams), &scanArgs); err != nil {
 		// 	panic(err)
@@ -85,14 +86,14 @@ functions and configured the provider.`,
 		// default:
 		// 	panic("unknown mode")
 		// }
-
+		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(benchCmd)
 
-	benchCmd.Flags().StringVarP(&benchCmdConfig.bench, "benchmark", "b", "", "Which benchmark to run")
+	benchCmd.Flags().StringVarP(&benchCmdConfig.benchName, "benchmark", "b", "", "Which benchmark to run")
 	benchCmd.Flags().StringVarP(&benchCmdConfig.functionName, "function-name", "n", "", "The function to run")
 	benchCmd.Flags().StringVarP(&benchCmdConfig.functionArgs, "function-args", "a", "{}", "Arguments to the function")
 	benchCmd.Flags().StringVarP(&benchCmdConfig.benchParams, "params", "p", "{}", "Parameters for the benchmark")

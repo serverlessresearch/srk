@@ -10,10 +10,10 @@ import "bytes"
 // theory, you can mix-and-match, but in practice only certain combinations may
 // work.
 type Provider struct {
-	Faas FaasService
+	Faas FunctionService
 }
 
-type FaasService interface {
+type FunctionService interface {
 	// Package up everything needed to install the function but don't actually
 	// install it to the service. rawDir may be assumed to be a unique path for
 	// this function. The package location should be determinsitically derived

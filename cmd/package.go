@@ -17,7 +17,8 @@ import (
 var packageCmdConfig struct {
 	source  string
 	include string
-	service srk.FaasService
+	name    string
+	service srk.FunctionService
 }
 
 // packageCmd represents the package command
@@ -28,26 +29,30 @@ var packageCmd = &cobra.Command{
 a code package. Typically, these take the form of an archive (e.g. .tgz or
 .zip). The command will tell you where the package was saved so that you
 can manually inspect or modify it.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		packageCmdConfig.service = getFaasService()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		packageCmdConfig.service = getFunctionService()
 		defer packageCmdConfig.service.Destroy()
 
-		funcName := strings.TrimSuffix(path.Base(packageCmdConfig.source), path.Ext(packageCmdConfig.source))
-		includes := strings.Split(packageCmdConfig.include, ",")
-		rawDir := getRawPath(funcName)
+		if packageCmdConfig.name == "source" {
+			packageCmdConfig.name = strings.TrimSuffix(path.Base(packageCmdConfig.source), path.Ext(packageCmdConfig.source))
+		}
 
-		if err := createRaw(packageCmdConfig.source, funcName, includes, rawDir); err != nil {
+		includes := strings.Split(packageCmdConfig.include, ",")
+		rawDir := getRawPath(packageCmdConfig.name)
+
+		if err := createRaw(packageCmdConfig.source, packageCmdConfig.name, includes, rawDir); err != nil {
 			fmt.Println("Packaging function failed: %v\n", err)
-			return
+			return err
 		}
 		fmt.Println("Created raw function: " + rawDir)
 
 		pkgPath, err := packageCmdConfig.service.Package(rawDir)
 		if err != nil {
 			fmt.Printf("Packaing failed: %v\n", err)
-			return
+			return err
 		}
 		fmt.Println("Package created at: " + pkgPath)
+		return nil
 	},
 }
 
@@ -57,6 +62,11 @@ func init() {
 	// Define the command line arguments for this subcommand
 	packageCmd.Flags().StringVarP(&packageCmdConfig.source, "source", "s", "", "source directory or file")
 	packageCmd.Flags().StringVarP(&packageCmdConfig.include, "include", "i", "", "SRK-provided libraries to include")
+	// The actual default is derived from the source option, so we set it
+	// something that will be clear in the help output until we have all the
+	// options parsed
+	packageCmd.Flags().StringVarP(&packageCmdConfig.name, "function-name", "n", "source", "Optional name for this function, if different than the source name")
+
 }
 
 // Returns a path to the raw directory for funcName (whether it exists or not)

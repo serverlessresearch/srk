@@ -55,9 +55,7 @@ func initConfig() {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Search for the config at ./configs/user/srk.* first, if not found,
-		// default to ./configs/srk.* (* can be json, yaml, etc)
-		viper.AddConfigPath("./configs/user")
+		// default search path for config is ./configs/srk.* (* can be json, yaml, etc)
 		viper.AddConfigPath("./configs")
 		viper.SetConfigName("srk")
 	}

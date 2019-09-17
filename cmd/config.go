@@ -9,15 +9,15 @@ import (
 )
 
 func getProvider() *srk.Provider {
-	return &srk.Provider{getFaasService()}
+	return &srk.Provider{getFunctionService()}
 }
 
 func destroyProvider(p *srk.Provider) {
 	p.Faas.Destroy()
 }
 
-func getFaasService() srk.FaasService {
-	// Setup the default FaaS service
+func getFunctionService() srk.FunctionService {
+	// Setup the default function service
 	providerName := viper.GetString("default-provider")
 	if providerName == "" {
 		panic("No default provider in configuration")
@@ -28,7 +28,7 @@ func getFaasService() srk.FaasService {
 		panic("Provider \"" + providerName + "\" does not provide a FaaS service")
 	}
 
-	var service srk.FaasService
+	var service srk.FunctionService
 	switch serviceName {
 	case "openLambda":
 		service = openlambda.NewConfig(

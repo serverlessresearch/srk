@@ -1,3 +1,4 @@
+// Support for Open Lambda. Implements the srk.FunctionService interface.
 package openlambda
 
 import (
@@ -24,7 +25,7 @@ type olConfig struct {
 	sessionStarted bool
 }
 
-func NewConfig(cmd string, dir string) srk.FaasService {
+func NewConfig(cmd string, dir string) srk.FunctionService {
 	return &olConfig{cmd, dir, false}
 }
 

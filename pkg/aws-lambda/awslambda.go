@@ -1,4 +1,4 @@
-// AWS Lambda specific functions. Implements the FaasService interface.
+// AWS Lambda specific functions. Implements the FunctionService interface.
 
 package awslambda
 
@@ -30,7 +30,7 @@ type awsLambdaConfig struct {
 	session   *lambda.Lambda
 }
 
-func NewConfig(role string, vpcConfig string, region string) srk.FaasService {
+func NewConfig(role string, vpcConfig string, region string) srk.FunctionService {
 	return &awsLambdaConfig{
 		role:      role,
 		vpcConfig: vpcConfig,
