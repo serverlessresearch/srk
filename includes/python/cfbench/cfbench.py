@@ -1,11 +1,4 @@
-package cfpackage
-
-import (
-	"os"
-	"time"
-)
-
-const cfbench = `import json
+import json
 import logging
 import resource
 import time
@@ -83,37 +76,4 @@ class LambdaExperiment(object):
 
     def data(self, experiment_data):
         self.data_buffer.update(experiment_data)
-`
 
-type includedFile struct {
-	name string
-	content func() []byte
-}
-
-func (i includedFile) Name() string {
-	return i.name
-}
-
-func (i includedFile) Size() int64 {
-	return int64(len(i.content()))
-}
-
-func (i includedFile) Mode() os.FileMode {
-	return 0644
-}
-
-func (i includedFile) ModTime() time.Time {
-	return time.Now()
-}
-
-func (i includedFile) IsDir() bool {
-	return false
-}
-
-func (i includedFile) Sys() interface{} {
-	return nil
-}
-
-var packagingIncludes = map[string][]includedFile{
-	"cfbench": []includedFile{ includedFile{"cfbench.py", func() []byte {return []byte(cfbench)}}},
-}

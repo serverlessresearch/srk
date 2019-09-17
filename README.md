@@ -5,37 +5,68 @@ It aims to make it easy to innovate on services typically offered by cloud provi
 readily hackable versions of cloud functions or cloud object storage. SRK also plans to include common benchmarks
 and operational tools, so that launching and evaluating a multi-tenant serverless service is quick and easy.
 
-## Build/Install
-This project is structured as a Go module, this means that it manages its own
-dependencies (via the go.mod and go.sum files) and does not need to be cloned
-into your GOPATH. To build this project, clone the repo anywhere you like and
-run:
+## Configuration
+You should first copy the example config configs/example-srk.yaml to
+configs/srk.yaml. You can then edit that file to configure your
+services:
+* OpenLambda needs to know where you OL command and working directories are.
+* AWS needs to know your role and vpc/security group configurations
+
+You should also set the 'default-provider' to either 'aws' or 'local' (local
+uses openlambda).
+
+## Build
+To build this project, just run:
 
   go build
 
-This will create the srk binary locally. To install to your GOPATH:
-
-  go install
-
-For more details about Go modules, see this
-[post](https://github.com/golang/go/wiki/Modules).
-
-### Dependencies
-This project requires Go version 1.13 or greater.
-
-All Go package dependencies will be installed automatically when you run 'go
-build'.
-
 ## Examples
 
-### Cloud Function Benchmark
+### Echo (Hello World)
+The echo function is defined at examples/echo. It serves as a "Hello World" for
+FaaS.
 
-Create a zip file containing the example workload:
+#### Source Files
+* echo.py: This is our actual function logic, it can be anything you want as
+  long as all of it's dependencies are in the echo/ folder that we pass to
+``srk function create -s``
+* f.py: This is the open-lambda glue code. OL requires that functions be named
+  f() and live in f.py. The signature of f() must be preserved. The body of f()
+  does any OL-specific actions and calls echo() with the correct arguments.
+* aws.py: This is the aws Lambda glue code. AWS lambda is more flexible with
+  function naming, but has an incompatible signature requirement (it includes a
+  'context' field that OL doesn't). SRK requires that you include an aws.py
+  with a function f(event, context).
+
+#### Installation
+To install to the configured service, run:
+
+    ./srk function create --source examples/echo
+
+#### Invocation
+This example simply echos back any arguments you pass it. To do a simple
+invocation, we will use the 'one-shot' benchmark that simply sends a single
+request and prints a single response:
+
+    ./srk bench \
+        --bench one-shot \
+        --function-args '{"hello" : "world"}' \
+        --function-name echo
+
+You should see {"hello" : "world"} printed back to you as the function response.
+
+### Concurrency Sweep Benchmark 
+______
+**NOTE**
+This section does not currently work (but will soon)
+______
+
+A more advanced benchmark attempts to measure the function invocation scaling
+of different providers.
 
 ```
-./srk package \
+./srk function create \
   --source examples/cfbench/sleep_workload.py \
-  --target sleep.zip \
   --include cfbench
 ```
 
@@ -47,7 +78,7 @@ aws lambda create-function \
   --handler sleep_workload.lambda_handler \
   --timeout 10 \
   --role {{YOUR_ROLE_ARN_HERE}} \
-  --zip-file fileb://$(pwd)/sleep.zip \
+  --zip-file fileb://$(pwd)/build/functions/sleep_workload.zip \
   --memory-size 128 \
   --vpc-config SubnetIds={{YOUR_SUBNET_IDS_HERE}},SecurityGroupIds={{YOUR_SECURITY_GROUP_IDS_HERE}}
 ```
@@ -62,7 +93,7 @@ Now you can run a command like this to test the cloud function:
 
 ```
 ./srk bench \
-  --mode concurrency_scan \
+  --mode concurrency-scan \
   --function-name sleepworkload \
   --function-args '{"sleep_time_ms":5000}' \
   --params '{"begin_concurrency":1,"delta_concurrency":1,"num_steps":5,"step_duration":5}'

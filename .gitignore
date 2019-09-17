@@ -1,4 +1,5 @@
 .idea
-srk
+/srk
 *.pdf
 log.txt
+build/

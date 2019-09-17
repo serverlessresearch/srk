@@ -1,3 +1,5 @@
+// The concurrency scan benchmark (implements the Benchmark interface). This
+// benchmark measures the scaling and concurrency under load of a FaaS service.
 package cfbench
 
 import (
@@ -6,6 +8,11 @@ import (
 	"os"
 	"time"
 )
+
+// Implements the Benchmark interface
+type ConcurrencySweepBench struct {
+	params string
+}
 
 type ConcurrencySweepArgs struct {
 	Begin        int `json:"begin_concurrency"`
@@ -16,23 +23,29 @@ type ConcurrencySweepArgs struct {
 
 type TransitionPoint struct {
 	concurrency int
-	when time.Duration
+	when        time.Duration
+}
+
+func NewConcurrencySweepBench(mode string, params string) *ConcurrencySweepBench {
+	return &ConcurrencySweepBench{
+		params: params,
+	}
 }
 
 func GenSweepTransitions(args ConcurrencySweepArgs) *[]TransitionPoint {
-	transitions := make([]TransitionPoint, 0, args.Steps+ 1)
+	transitions := make([]TransitionPoint, 0, args.Steps+1)
 	for step := 0; step < args.Steps; step++ {
 		transitions = append(transitions,
 			TransitionPoint{
-				args.Begin + step * args.Delta,
-				time.Duration(step * args.StepDuration) * time.Second,
+				args.Begin + step*args.Delta,
+				time.Duration(step*args.StepDuration) * time.Second,
 			})
 	}
-	transitions = append(transitions, TransitionPoint{0, time.Duration(args.Steps * args.StepDuration) * time.Second})
+	transitions = append(transitions, TransitionPoint{0, time.Duration(args.Steps*args.StepDuration) * time.Second})
 	return &transitions
 }
 
-func ConcurrencySweep(functionName string, functionArgs map[string]interface{},sweepDefinition *[]TransitionPoint, trackingUrl string, logfile string) {
+func ConcurrencySweep(functionName string, functionArgs map[string]interface{}, sweepDefinition *[]TransitionPoint, trackingUrl string, logfile string) {
 	experimentId := genExperimentId()
 	log.Printf("starting experiment %s", experimentId)
 	progress := newProgress(experimentId)
