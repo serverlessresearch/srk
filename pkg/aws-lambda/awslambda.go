@@ -54,6 +54,39 @@ func (self *awsLambdaConfig) Install(rawDir string) (rerr error) {
 	return self.awsInstall(zipPath)
 }
 
+func (self *awsLambdaConfig) Remove(fName string) error {
+	if self.session == nil {
+		sess := session.Must(session.NewSession())
+		self.session = lambda.New(sess, &aws.Config{Region: aws.String(self.region)})
+	}
+
+	_, err := self.session.DeleteFunction(&lambda.DeleteFunctionInput{FunctionName: aws.String(fName)})
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case lambda.ErrCodeServiceException:
+				fmt.Println(lambda.ErrCodeServiceException, aerr.Error())
+			case lambda.ErrCodeResourceNotFoundException:
+				fmt.Println(lambda.ErrCodeResourceNotFoundException, aerr.Error())
+			case lambda.ErrCodeTooManyRequestsException:
+				fmt.Println(lambda.ErrCodeTooManyRequestsException, aerr.Error())
+			case lambda.ErrCodeInvalidParameterValueException:
+				fmt.Println(lambda.ErrCodeInvalidParameterValueException, aerr.Error())
+			case lambda.ErrCodeResourceConflictException:
+				fmt.Println(lambda.ErrCodeResourceConflictException, aerr.Error())
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			fmt.Println(err.Error())
+		}
+		return err
+	}
+	return nil
+}
+
 func (self *awsLambdaConfig) Destroy() {
 	//Currently no state cleanup needed for Aws
 }

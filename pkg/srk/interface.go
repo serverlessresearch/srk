@@ -22,8 +22,12 @@ type FunctionService interface {
 	Package(rawDir string) (pkgPath string, rerr error)
 
 	// Install a function to the desired FaaS service. It is assumed that
-	// Package() has already been called on this rawDir.
+	// Package() has already been called on this rawDir. The name of rawDir is
+	// also the name of the function.
 	Install(rawDir string) (rerr error)
+
+	// Removes a function from the service. Does not affect packages.
+	Remove(fName string) (rerr error)
 
 	// Invoke function
 	// fName: Name of function

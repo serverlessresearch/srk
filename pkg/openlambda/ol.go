@@ -53,6 +53,22 @@ func (self *olConfig) Install(rawDir string) error {
 	return nil
 }
 
+func (self *olConfig) Remove(fName string) error {
+	tarPath := filepath.Clean(fName) + ".tar.gz"
+
+	installPath := filepath.Join(self.dir, "registry", filepath.Base(tarPath))
+	//OL is managed by root so we have to use sudo commands for everything
+	cmd := exec.Command("sudo", "sh", "-c", "rm -r "+installPath)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		fmt.Printf("Failed to remove function: %v\n", err)
+		fmt.Printf(string(out))
+		return err
+	}
+	fmt.Println("Open Lambda function removed")
+	return nil
+
+}
+
 func (self *olConfig) Destroy() {
 	if self.sessionStarted {
 		self.terminateOlWorker()
