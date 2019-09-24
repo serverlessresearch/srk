@@ -41,7 +41,7 @@ can manually inspect or modify it.`,
 		rawDir := getRawPath(packageCmdConfig.name)
 
 		if err := createRaw(packageCmdConfig.source, packageCmdConfig.name, includes, rawDir); err != nil {
-			fmt.Println("Packaging function failed: %v\n", err)
+			fmt.Printf("Packaging function failed: %v\n", err)
 			return err
 		}
 		fmt.Println("Created raw function: " + rawDir)
@@ -86,7 +86,7 @@ func getRawPath(funcName string) string {
 func createRaw(source string, funcName string, includes []string, rawDir string) (err error) {
 	//Shared global function build directory
 	fBuildDir := filepath.Join(viper.GetString("buildDir"), "functions")
-	err = os.MkdirAll(fBuildDir, os.ModeDir)
+	err = os.MkdirAll(fBuildDir, 0775)
 	if err != nil {
 		fmt.Printf("Failed to create build directory at "+fBuildDir+": %v", err)
 		return err

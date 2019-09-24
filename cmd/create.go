@@ -41,7 +41,7 @@ function package" and "srk function install".`,
 		rawDir := getRawPath(funcName)
 
 		if err := createRaw(createCmdConfig.source, funcName, includes, rawDir); err != nil {
-			fmt.Println("Packaging function failed: %v\n", err)
+			fmt.Printf("Create command failed: %v\n", err)
 			return err
 		}
 		fmt.Println("Created raw function: " + rawDir)
