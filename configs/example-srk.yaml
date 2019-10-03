@@ -5,10 +5,10 @@ default-provider : "aws"
 # provider will have one implementation of each service category (although it
 # is possible to omit service categories of they are not needed)
 providers :
-  - name : "aws"
+  aws :
     faas : "awsLambda"
     objStore : "s3"
-  - name : "local"
+  local :
     faas : "openLambda"
     objStore : "filesystem"
 
