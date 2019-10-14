@@ -20,7 +20,7 @@ service ObjectStore {
     // Put an object in a bucket
     rpc put (PutRequest) returns (google.protobuf.Empty) {}
     // Delete an object in a bucket
-    rpc delete (DeleteRequest) returns (google.protobuf.Empty) {}
+    rpc deleteObject (DeleteRequest) returns (google.protobuf.Empty) {}
        
 }
 
