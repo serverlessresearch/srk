@@ -31,8 +31,8 @@ var rootCmd = &cobra.Command{
 	Short: "The Berkeley Serverless Research Kit",
 	Long:  `A collection of tools for experimenting with serverless systems.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		// This must be done in a PreRun because it may load from viper in the
-		// future.
+		// Fill in the final logger now that we've parsed all CLI and
+		// config-file options
 		srkConfig.logger = logrus.New()
 
 		// Ideally, this would be logged earlier, but we had to wait until
@@ -64,6 +64,11 @@ func Execute() {
 }
 
 func init() {
+
+	// Fallback default logger, will be overwritten in root.PersistentPreRun()
+	// once config options are parsed.
+	srkConfig.logger = logrus.New()
+
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is configs/srk.yaml)")
