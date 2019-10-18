@@ -4,7 +4,12 @@
 //   "provider" : A coherent set of services that all work together simultaneously
 package srk
 
-import "bytes"
+import (
+	"bytes"
+
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+)
 
 // A provider aggregates a set of services that all run simultaneously. In
 // theory, you can mix-and-match, but in practice only certain combinations may
@@ -42,6 +47,8 @@ type FunctionService interface {
 	// requires manual intervention.
 	Destroy()
 }
+
+type FunctionServiceFactory func(logger *logrus.Logger, config *viper.Viper) (FunctionService, error)
 
 // Benchmarks
 type BenchArgs struct {

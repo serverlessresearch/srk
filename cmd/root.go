@@ -41,9 +41,8 @@ var rootCmd = &cobra.Command{
 
 		faas, err := getFunctionService()
 		if err != nil {
-			// return errors.Wrap(err, "Failed to initialize srk provider")
-			fmt.Printf("%v\n", err)
-			panic("Failed to initialize srk provider\n")
+			srkConfig.logger.Errorf("Failed to initialize srk provider: %v\n", err)
+			os.Exit(1)
 		}
 		srkConfig.provider = &srk.Provider{
 			Faas: faas,
@@ -119,12 +118,10 @@ func getFunctionService() (srk.FunctionService, error) {
 	}
 
 	var service srk.FunctionService
+	var err error = nil
 	switch serviceName {
 	case "openLambda":
-		// service = openlambda.NewConfig(viper.Sub("service.faas.openLambda"), )
-		service = openlambda.NewConfig(
-			viper.GetString("service.faas.openLambda.olcmd"),
-			viper.GetString("service.faas.openLambda.oldir"))
+		service, err = openlambda.NewConfig(srkConfig.logger, viper.Sub("service.faas.openLambda"))
 	case "awsLambda":
 		service = awslambda.NewConfig(
 			viper.GetString("service.faas.awsLambda.role"),
@@ -134,5 +131,8 @@ func getFunctionService() (srk.FunctionService, error) {
 		return nil, errors.New("Unrecognized FaaS service: " + serviceName)
 	}
 
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to initialize service "+serviceName)
+	}
 	return service, nil
 }
