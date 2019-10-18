@@ -2,14 +2,13 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 
-	"github.com/serverlessresearch/srk/pkg/srk"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -18,7 +17,6 @@ var packageCmdConfig struct {
 	source  string
 	include string
 	name    string
-	service srk.FunctionService
 }
 
 // packageCmd represents the package command
@@ -30,8 +28,6 @@ a code package. Typically, these take the form of an archive (e.g. .tgz or
 .zip). The command will tell you where the package was saved so that you
 can manually inspect or modify it.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		packageCmdConfig.service = getFunctionService()
-		defer packageCmdConfig.service.Destroy()
 
 		if packageCmdConfig.name == "source" {
 			packageCmdConfig.name = strings.TrimSuffix(path.Base(packageCmdConfig.source), path.Ext(packageCmdConfig.source))
@@ -41,17 +37,15 @@ can manually inspect or modify it.`,
 		rawDir := getRawPath(packageCmdConfig.name)
 
 		if err := createRaw(packageCmdConfig.source, packageCmdConfig.name, includes, rawDir); err != nil {
-			fmt.Printf("Packaging function failed: %v\n", err)
-			return err
+			return errors.Wrap(err, "Packaging function failed")
 		}
-		fmt.Println("Created raw function: " + rawDir)
+		srkConfig.logger.Info("Created raw function: " + rawDir)
 
-		pkgPath, err := packageCmdConfig.service.Package(rawDir)
+		pkgPath, err := srkConfig.provider.Faas.Package(rawDir)
 		if err != nil {
-			fmt.Printf("Packaing failed: %v\n", err)
-			return err
+			return errors.Wrap(err, "Packaing failed")
 		}
-		fmt.Println("Package created at: " + pkgPath)
+		srkConfig.logger.Info("Package created at: " + pkgPath)
 		return nil
 	},
 }
@@ -88,21 +82,17 @@ func createRaw(source string, funcName string, includes []string, rawDir string)
 	fBuildDir := filepath.Join(viper.GetString("buildDir"), "functions")
 	err = os.MkdirAll(fBuildDir, 0775)
 	if err != nil {
-		fmt.Printf("Failed to create build directory at "+fBuildDir+": %v", err)
-		return err
+		return errors.Wrap(err, "Failed to create build directory at "+fBuildDir)
 	}
 
 	// Always cleanup old raw directories first
 	if err := os.RemoveAll(rawDir); err != nil {
-		fmt.Printf("Failed to cleanup old build directory "+rawDir+": %v", err)
-		return err
+		return errors.Wrap(err, "Failed to cleanup old build directory "+rawDir)
 	}
 
 	cmd := exec.Command("cp", "-r", source, rawDir)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		fmt.Printf("Adding source returned error: %v\n", err)
-		fmt.Printf(string(out))
-		return err
+		return errors.Wrapf(err, "Adding source returned error\n%v", out)
 	}
 
 	// Copy includes into the raw directory
@@ -112,13 +102,11 @@ func createRaw(source string, funcName string, includes []string, rawDir string)
 			"python",
 			include)
 		if _, err := os.Stat(includePath); err != nil {
-			fmt.Printf("Couldn't find include: " + include)
-			return err
+			return errors.Wrap(err, "Couldn't find include: "+include)
 		}
 		cmd := exec.Command("cp", "-r", includePath, rawDir)
 		if err := cmd.Run(); err != nil {
-			fmt.Printf("Adding include returned error: %v", err)
-			return err
+			return errors.Wrap(err, "Adding include returned error")
 		}
 	}
 

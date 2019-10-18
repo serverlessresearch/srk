@@ -3,8 +3,7 @@
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -16,16 +15,12 @@ var installCmd = &cobra.Command{
 	Short: "Install a pre-packaged function to the configured FaaS service",
 	Long:  `Install a function to the FaaS service. It is assumed that you have already packaged this function (using the 'package' command).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		service := getFunctionService()
-		defer service.Destroy()
-
 		rawDir := getRawPath(installName)
 
-		if err := service.Install(rawDir); err != nil {
-			fmt.Printf("Installation failed: %v\n", err)
-			return err
+		if err := srkConfig.provider.Faas.Install(rawDir); err != nil {
+			return errors.Wrap(err, "Installation failed")
 		}
-		fmt.Println("Successfully installed function")
+		srkConfig.logger.Info("Successfully installed function")
 		return nil
 	},
 }

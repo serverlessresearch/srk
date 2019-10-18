@@ -17,7 +17,9 @@ require (
 	github.com/klauspost/asmfmt v1.2.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/nsf/gocode v0.0.0-20190302080247-5bee97b48836 // indirect
+	github.com/pkg/errors v0.8.1
 	github.com/rogpeppe/godef v1.1.1 // indirect
+	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.3.2
 	github.com/zmb3/gogetdoc v0.0.0-20190228002656-b37376c5da6a // indirect

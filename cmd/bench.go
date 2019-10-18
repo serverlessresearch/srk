@@ -2,9 +2,9 @@
 package cmd
 
 import (
-	"errors"
 	"net"
 
+	"github.com/pkg/errors"
 	"github.com/serverlessresearch/srk/pkg/cfbench"
 	"github.com/serverlessresearch/srk/pkg/srk"
 	"github.com/spf13/cobra"
@@ -28,9 +28,6 @@ var benchCmd = &cobra.Command{
 functions and configured the provider.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		provider := getProvider()
-		defer destroyProvider(provider)
-
 		var bench srk.Benchmark
 		benchArgs := srk.BenchArgs{
 			benchCmdConfig.functionName,
@@ -45,7 +42,7 @@ functions and configured the provider.`,
 			var err error
 			bench, err = cfbench.NewOneShot()
 			if err != nil {
-				panic("Failed to initialize OneShot benchmark")
+				return errors.Wrap(err, "Failed to initialize OneShot benchmark")
 			}
 
 		case "concurrency-scan":
@@ -54,7 +51,7 @@ functions and configured the provider.`,
 			return errors.New("Unrecognized benchmark: " + benchCmdConfig.benchName)
 		}
 
-		if err := bench.RunBench(provider, &benchArgs); err != nil {
+		if err := bench.RunBench(srkConfig.provider, &benchArgs); err != nil {
 			return err
 		}
 		//Parse the benchmark args

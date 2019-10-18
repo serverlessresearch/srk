@@ -3,10 +3,10 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -19,9 +19,6 @@ var cleanCmd = &cobra.Command{
 	Short: "Clean up local packages and build files",
 	Long:  `Clean will remove any local files that were generated for the specified function (or all functions if no function-name is provided. Clean does not affect function service providers (use "remove" to remove a function from a provider)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		service := getFunctionService()
-		defer service.Destroy()
-
 		var cleanGlob string
 		if cleanName != "" {
 			cleanGlob = getRawPath(cleanName) + "*"
@@ -31,18 +28,16 @@ var cleanCmd = &cobra.Command{
 
 		matches, err := filepath.Glob(cleanGlob)
 		if err != nil {
-			fmt.Printf("Failed to clean build directory")
-			return err
+			return errors.Wrap(err, "Failed to clean build directory")
 		}
 
 		for _, path := range matches {
 			if err := os.RemoveAll(path); err != nil {
-				fmt.Println("Failed to remove build directory: " + path)
-				fmt.Printf("%v\n", err)
+				return errors.Wrapf(err, "Failed to remove build directory: "+path)
 			}
 		}
 
-		fmt.Println("Successfully cleaned function")
+		srkConfig.logger.Info("Successfully cleaned function")
 		return nil
 	},
 }
