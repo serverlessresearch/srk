@@ -123,10 +123,7 @@ func getFunctionService() (srk.FunctionService, error) {
 	case "openLambda":
 		service, err = openlambda.NewConfig(srkConfig.logger, viper.Sub("service.faas.openLambda"))
 	case "awsLambda":
-		service = awslambda.NewConfig(
-			viper.GetString("service.faas.awsLambda.role"),
-			viper.GetString("service.faas.awsLambda.vpc-config"),
-			viper.GetString("service.faas.awsLambda.region"))
+		service, err = awslambda.NewConfig(srkConfig.logger, viper.Sub("service.faas.awsLambda"))
 	default:
 		return nil, errors.New("Unrecognized FaaS service: " + serviceName)
 	}

@@ -6,7 +6,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,7 +17,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/pkg/errors"
 	"github.com/serverlessresearch/srk/pkg/srk"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 type awsLambdaConfig struct {
@@ -28,15 +30,18 @@ type awsLambdaConfig struct {
 	vpcConfig string
 	region    string
 	session   *lambda.Lambda
+	log       *logrus.Logger
 }
 
-func NewConfig(role string, vpcConfig string, region string) srk.FunctionService {
-	return &awsLambdaConfig{
-		role:      role,
-		vpcConfig: vpcConfig,
-		region:    region,
+func NewConfig(logger *logrus.Logger, config *viper.Viper) (srk.FunctionService, error) {
+	awsCfg := &awsLambdaConfig{
+		role:      config.GetString("role"),
+		vpcConfig: config.GetString("vpc-config"),
+		region:    config.GetString("region"),
 		session:   nil,
+		log:       logger,
 	}
+	return awsCfg, nil
 }
 
 func (self *awsLambdaConfig) Package(rawDir string) (zipDir string, rerr error) {
@@ -62,27 +67,26 @@ func (self *awsLambdaConfig) Remove(fName string) error {
 
 	_, err := self.session.DeleteFunction(&lambda.DeleteFunctionInput{FunctionName: aws.String(fName)})
 	if err != nil {
+		var errStr string
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case lambda.ErrCodeServiceException:
-				fmt.Println(lambda.ErrCodeServiceException, aerr.Error())
+				errStr = fmt.Sprintln(lambda.ErrCodeServiceException, aerr.Error())
 			case lambda.ErrCodeResourceNotFoundException:
-				fmt.Println(lambda.ErrCodeResourceNotFoundException, aerr.Error())
+				errStr = fmt.Sprintln(lambda.ErrCodeResourceNotFoundException, aerr.Error())
 			case lambda.ErrCodeTooManyRequestsException:
-				fmt.Println(lambda.ErrCodeTooManyRequestsException, aerr.Error())
+				errStr = fmt.Sprintln(lambda.ErrCodeTooManyRequestsException, aerr.Error())
 			case lambda.ErrCodeInvalidParameterValueException:
-				fmt.Println(lambda.ErrCodeInvalidParameterValueException, aerr.Error())
+				errStr = fmt.Sprintln(lambda.ErrCodeInvalidParameterValueException, aerr.Error())
 			case lambda.ErrCodeResourceConflictException:
-				fmt.Println(lambda.ErrCodeResourceConflictException, aerr.Error())
+				errStr = fmt.Sprintln(lambda.ErrCodeResourceConflictException, aerr.Error())
 			default:
-				fmt.Println(aerr.Error())
+				errStr = fmt.Sprintln(aerr.Error())
 			}
 		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			fmt.Println(err.Error())
+			errStr = fmt.Sprintln(err.Error())
 		}
-		return err
+		return errors.New(errStr)
 	}
 	return nil
 }
@@ -99,8 +103,7 @@ func (self *awsLambdaConfig) Invoke(fName string, args string) (resp *bytes.Buff
 
 	payload, err := json.Marshal(args)
 	if err != nil {
-		fmt.Printf("Failed to parse arguments: %v\n", err)
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to parse arguments")
 	}
 
 	awsResp, err := self.session.Invoke(&lambda.InvokeInput{
@@ -116,12 +119,12 @@ func (self *awsLambdaConfig) Invoke(fName string, args string) (resp *bytes.Buff
 	if awsResp.FunctionError != nil {
 		return resp, errors.New(*awsResp.FunctionError)
 	}
-	fmt.Println("Function invocation success:")
-	fmt.Printf("Executed Version: %v\n", awsResp.ExecutedVersion)
-	fmt.Printf("Function Error: %v\n", awsResp.FunctionError)
-	fmt.Printf("Log Result: %v\n", awsResp.LogResult)
-	fmt.Printf("Payload: %s\n", string(awsResp.Payload))
-	fmt.Printf("Status Code: %v\n", awsResp.StatusCode)
+	self.log.Info("Function invocation success:\n")
+	self.log.Infof("Executed Version: %v\n", awsResp.ExecutedVersion)
+	self.log.Infof("Function Error: %v\n", awsResp.FunctionError)
+	self.log.Infof("Log Result: %v\n", awsResp.LogResult)
+	self.log.Infof("Payload: %s\n", string(awsResp.Payload))
+	self.log.Infof("Status Code: %v\n", awsResp.StatusCode)
 	return resp, nil
 }
 
@@ -135,14 +138,13 @@ func (self *awsLambdaConfig) awsInstall(zipPath string) (rerr error) {
 
 	zipDat, err := ioutil.ReadFile(zipPath)
 	if err != nil {
-		panic("Failed to read the zip file we just created")
+		return errors.Wrap(err, "Failed to read the zip file we just created")
 	}
 
 	var result *lambda.FunctionConfiguration
 	exists, err := lambdaExists(self.session, funcName)
 	if err != nil {
-		fmt.Println("Failure checking function status:")
-		return err
+		return errors.Wrap(err, "Failure checking function status:")
 	}
 
 	if exists {
@@ -150,7 +152,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string) (rerr error) {
 			FunctionName: aws.String(funcName),
 			ZipFile:      zipDat}
 
-		fmt.Println("Updating Function: " + funcName)
+		self.log.Info("Updating Function: " + funcName)
 		result, err = self.session.UpdateFunctionCode(req)
 	} else {
 		awsVpcConfig := lambda.VpcConfig{}
@@ -173,37 +175,37 @@ func (self *awsLambdaConfig) awsInstall(zipPath string) (rerr error) {
 			VpcConfig:    &awsVpcConfig,
 		}
 
-		fmt.Println("Creating Function: " + funcName)
+		self.log.Info("Creating Function: " + funcName)
 		result, err = self.session.CreateFunction(req)
 	}
 	if err != nil {
-		fmt.Println("Error while registering function with AWS:")
+		var errStr string
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case lambda.ErrCodeResourceConflictException:
-				fmt.Println(lambda.ErrCodeResourceConflictException, aerr.Error())
+				errStr = fmt.Sprintln(lambda.ErrCodeResourceConflictException, aerr.Error())
 			case lambda.ErrCodeServiceException:
-				fmt.Println(lambda.ErrCodeServiceException, aerr.Error())
+				errStr = fmt.Sprintln(lambda.ErrCodeServiceException, aerr.Error())
 			case lambda.ErrCodeInvalidParameterValueException:
-				fmt.Println(lambda.ErrCodeInvalidParameterValueException, aerr.Error())
+				errStr = fmt.Sprintln(lambda.ErrCodeInvalidParameterValueException, aerr.Error())
 			case lambda.ErrCodeResourceNotFoundException:
-				fmt.Println(lambda.ErrCodeResourceNotFoundException, aerr.Error())
+				errStr = fmt.Sprintln(lambda.ErrCodeResourceNotFoundException, aerr.Error())
 			case lambda.ErrCodeTooManyRequestsException:
-				fmt.Println(lambda.ErrCodeTooManyRequestsException, aerr.Error())
+				errStr = fmt.Sprintln(lambda.ErrCodeTooManyRequestsException, aerr.Error())
 			case lambda.ErrCodeCodeStorageExceededException:
-				fmt.Println(lambda.ErrCodeCodeStorageExceededException, aerr.Error())
+				errStr = fmt.Sprintln(lambda.ErrCodeCodeStorageExceededException, aerr.Error())
 			default:
-				fmt.Println(aerr.Error())
+				errStr = fmt.Sprintln(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			errStr = fmt.Sprintln(err.Error())
 		}
-		return err
+		return errors.New(errStr)
 	}
-	fmt.Println("Success:")
-	fmt.Println(result)
+	self.log.Info("Success:")
+	self.log.Info(result)
 
 	return nil
 }
@@ -213,27 +215,24 @@ func lambdaExists(session *lambda.Lambda, fName string) (bool, error) {
 
 	result, err := session.ListFunctions(req)
 	if err != nil {
+		var errStr string
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case lambda.ErrCodeServiceException:
-				fmt.Println(lambda.ErrCodeServiceException, aerr.Error())
-				return false, err
+				errStr = fmt.Sprintln(lambda.ErrCodeServiceException, aerr.Error())
 			case lambda.ErrCodeTooManyRequestsException:
-				fmt.Println(lambda.ErrCodeTooManyRequestsException, aerr.Error())
-				return false, err
+				errStr = fmt.Sprintln(lambda.ErrCodeTooManyRequestsException, aerr.Error())
 			case lambda.ErrCodeInvalidParameterValueException:
-				fmt.Println(lambda.ErrCodeInvalidParameterValueException, aerr.Error())
-				return false, err
+				errStr = fmt.Sprintln(lambda.ErrCodeInvalidParameterValueException, aerr.Error())
 			default:
-				fmt.Println(aerr.Error())
-				return false, err
+				errStr = fmt.Sprintln(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
-			return false, err
+			errStr = fmt.Sprintln(err.Error())
 		}
+		return false, errors.New(errStr)
 	}
 
 	for _, f := range result.Functions {
@@ -262,7 +261,7 @@ func zipRaw(rawPath, dstPath string) error {
 		}
 		relPath, err := filepath.Rel(rawPath, filePath)
 		if err != nil {
-			panic(fmt.Sprintf("Couldn't make relative path while zipping %v", err))
+			return errors.Wrap(err, "Couldn't make relative path while zipping")
 		}
 
 		header, err := zip.FileInfoHeader(info)
