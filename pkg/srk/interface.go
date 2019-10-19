@@ -64,4 +64,4 @@ type Benchmark interface {
 }
 
 // Every distinct benchmark should provide a factory
-type BenchFactory func() (Benchmark, error)
+type BenchFactory func(logger *logrus.Logger) (Benchmark, error)

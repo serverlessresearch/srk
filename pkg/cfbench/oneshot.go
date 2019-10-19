@@ -3,29 +3,27 @@
 package cfbench
 
 import (
-	"fmt"
-
+	"github.com/pkg/errors"
 	"github.com/serverlessresearch/srk/pkg/srk"
+	"github.com/sirupsen/logrus"
 )
 
 type oneShotBench struct {
+	log *logrus.Logger
 }
 
 // An srk.BenchFactory for the oneshot benchmark
-func NewOneShot() (srk.Benchmark, error) {
-	return &oneShotBench{}, nil
+func NewOneShot(logger *logrus.Logger) (srk.Benchmark, error) {
+	return &oneShotBench{log: logger}, nil
 }
 
-func (ctx *oneShotBench) RunBench(prov *srk.Provider, args *srk.BenchArgs) error {
-	fmt.Println("Invoking: " + args.FName + "(" + args.FArgs + ")")
+func (self *oneShotBench) RunBench(prov *srk.Provider, args *srk.BenchArgs) error {
+	self.log.Info("Invoking: " + args.FName + "(" + args.FArgs + ")")
 	resp, err := prov.Faas.Invoke(args.FName, args.FArgs)
 	if err != nil {
-		fmt.Printf("Failed to invoke function "+args.FName+"("+args.FArgs+"): %v\n", err)
-		return err
+		return errors.Wrap(err, "Failed to invoke function "+args.FName+"("+args.FArgs+")")
 	}
 
-	fmt.Println("Function Response:")
-	fmt.Printf("%v\n", resp)
-
+	self.log.Infof("Function Response:\n%v\n", resp)
 	return nil
 }
