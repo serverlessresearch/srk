@@ -3,11 +3,10 @@
 package cmd
 
 import (
-	"fmt"
 	"path"
 	"strings"
 
-	"github.com/serverlessresearch/srk/pkg/srk"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +14,6 @@ var createCmdConfig struct {
 	source  string
 	include string
 	name    string
-	service srk.FunctionService
 }
 
 var createCmd = &cobra.Command{
@@ -26,38 +24,34 @@ upload it to the configured FaaS provider. Create is equivalent to calling "srk
 function package" and "srk function install".`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		createCmdConfig.service = getFunctionService()
-		defer createCmdConfig.service.Destroy()
-
 		var funcName string
 		if createCmdConfig.name == "source" {
 			funcName = strings.TrimSuffix(path.Base(createCmdConfig.source), path.Ext(createCmdConfig.source))
 		} else {
 			funcName = createCmdConfig.name
 		}
-		fmt.Println("Function name: " + funcName)
+		srkConfig.logger.Info("Function name: " + funcName)
 
 		includes := strings.Split(createCmdConfig.include, ",")
 		rawDir := getRawPath(funcName)
 
 		if err := createRaw(createCmdConfig.source, funcName, includes, rawDir); err != nil {
-			fmt.Printf("Create command failed: %v\n", err)
-			return err
+			return errors.Wrap(err, "Create command failed")
 		}
-		fmt.Println("Created raw function: " + rawDir)
+		srkConfig.logger.Info("Created raw function: " + rawDir)
 
-		pkgPath, err := createCmdConfig.service.Package(rawDir)
+		// pkgPath, err := createCmdConfig.service.Package(rawDir)
+		pkgPath, err := srkConfig.provider.Faas.Package(rawDir)
 		if err != nil {
-			fmt.Printf("Packaing failed: %v\n", err)
-			return err
+			return errors.Wrap(err, "Packaging failed")
 		}
-		fmt.Println("Created FaaS Package: " + pkgPath)
+		srkConfig.logger.Info("Created FaaS Package: " + pkgPath)
 
-		if err := createCmdConfig.service.Install(rawDir); err != nil {
-			fmt.Printf("Installation failed: %v\n", err)
-			return err
+		// if err := createCmdConfig.service.Install(rawDir); err != nil {
+		if err := srkConfig.provider.Faas.Install(rawDir); err != nil {
+			return errors.Wrap(err, "Installation failed")
 		}
-		fmt.Println("Successfully installed function")
+		srkConfig.logger.Info("Successfully installed function")
 		return nil
 	},
 }

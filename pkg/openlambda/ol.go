@@ -5,7 +5,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -13,7 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/serverlessresearch/srk/pkg/srk"
+	"github.com/spf13/viper"
 )
 
 type olConfig struct {
@@ -23,10 +24,17 @@ type olConfig struct {
 	dir string
 	// Keeps track of if we've started an ol worker or not
 	sessionStarted bool
+	log            srk.Logger
 }
 
-func NewConfig(cmd string, dir string) srk.FunctionService {
-	return &olConfig{cmd, dir, false}
+func NewConfig(logger srk.Logger, config *viper.Viper) (srk.FunctionService, error) {
+	olCfg := &olConfig{
+		config.GetString("olcmd"),
+		config.GetString("oldir"),
+		false,
+		logger,
+	}
+	return olCfg, nil
 }
 
 func (self *olConfig) Package(rawDir string) (string, error) {
@@ -45,11 +53,9 @@ func (self *olConfig) Install(rawDir string) error {
 	//OL is managed by root so we have to use sudo commands for everything
 	cmd := exec.Command("sudo", "sh", "-c", "cp "+tarPath+" "+installPath)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		fmt.Printf("Failed to install function: %v\n", err)
-		fmt.Printf(string(out))
-		return err
+		return errors.Wrap(err, string(out))
 	}
-	fmt.Println("Open Lambda function installed to: " + installPath)
+	self.log.Info("Open Lambda function installed to: " + installPath)
 	return nil
 }
 
@@ -60,13 +66,10 @@ func (self *olConfig) Remove(fName string) error {
 	//OL is managed by root so we have to use sudo commands for everything
 	cmd := exec.Command("sudo", "sh", "-c", "rm -r "+installPath)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		fmt.Printf("Failed to remove function: %v\n", err)
-		fmt.Printf(string(out))
-		return err
+		return errors.Wrap(err, string(out))
 	}
-	fmt.Println("Open Lambda function removed")
+	self.log.Info("Open Lambda function removed")
 	return nil
-
 }
 
 func (self *olConfig) Destroy() {
@@ -77,13 +80,14 @@ func (self *olConfig) Destroy() {
 
 func (self *olConfig) Invoke(fName string, args string) (resp *bytes.Buffer, rerr error) {
 	if !self.sessionStarted {
-		self.launchOlWorker()
+		if err := self.launchOlWorker(); err != nil {
+			return nil, errors.Wrap(err, "Failed to start openlambda session")
+		}
 	}
 
 	olResp, err := http.Post("http://localhost:5000/run/"+fName, "application/json", strings.NewReader(args))
 	if err != nil {
-		fmt.Printf("Failed to POST request to ol worker: %v\n", err)
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to POST request to ol worker")
 	}
 	respBuf := new(bytes.Buffer)
 	respBuf.ReadFrom(olResp.Body)
@@ -99,9 +103,7 @@ func (self *olConfig) launchOlWorker() error {
 	cmd := exec.Command("sudo", "sh", "-c",
 		self.cmd+" worker -d --path="+self.dir)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		fmt.Printf("Failed to launch the open lambda worker: %v\n", err)
-		fmt.Printf(string(out))
-		return err
+		return errors.Wrap(err, string(out))
 	}
 	return nil
 }
@@ -111,9 +113,7 @@ func (self *olConfig) terminateOlWorker() error {
 	cmd := exec.Command("sudo", "sh", "-c",
 		self.cmd+" kill --path="+self.dir)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		fmt.Printf("Failed to terminate the open lambda worker: %v\n", err)
-		fmt.Printf(string(out))
-		return err
+		return errors.Wrap(err, "Failed to terminate the open lambda worker:\n"+string(out))
 	}
 	self.sessionStarted = false
 	return nil
@@ -143,7 +143,7 @@ func tarRaw(rawPath, destPath string) error {
 
 		relPath, err := filepath.Rel(rawPath, filePath)
 		if err != nil {
-			panic(fmt.Sprintf("Couldn't make relative path while zipping %v", err))
+			return err
 		}
 
 		header, err := tar.FileInfoHeader(info, filePath)

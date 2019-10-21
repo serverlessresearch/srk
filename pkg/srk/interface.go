@@ -4,7 +4,11 @@
 //   "provider" : A coherent set of services that all work together simultaneously
 package srk
 
-import "bytes"
+import (
+	"bytes"
+
+	"github.com/sirupsen/logrus"
+)
 
 // A provider aggregates a set of services that all run simultaneously. In
 // theory, you can mix-and-match, but in practice only certain combinations may
@@ -13,6 +17,9 @@ type Provider struct {
 	Faas FunctionService
 }
 
+// A function service provides a FaaS interface
+// All new function services should provide an object that meets this interface, with a constructor like:
+// func NewConfig(logger Logger, config *viper.Viper) (FunctionService, error)
 type FunctionService interface {
 	// Package up everything needed to install the function but don't actually
 	// install it to the service. rawDir may be assumed to be a unique path for
@@ -43,7 +50,6 @@ type FunctionService interface {
 	Destroy()
 }
 
-// Benchmarks
 type BenchArgs struct {
 	FName       string
 	FArgs       string
@@ -52,9 +58,14 @@ type BenchArgs struct {
 	Output      string
 }
 
+// Benchmarks use a provider to run some experiment. They can install
+// functions, access data stores, and invoke services as needed.
+// They should provide a constructor like:
+// func NewBench(logger Logger) (Benchmark, error)
 type Benchmark interface {
 	RunBench(prov *Provider, args *BenchArgs) error
 }
 
-// Every distinct benchmark should provide a factory
-type BenchFactory func() (Benchmark, error)
+// Alias logrus FieldLogger in case we want to change the logging behavior in
+// the future (e.g. add methods to the interface)
+type Logger logrus.FieldLogger
