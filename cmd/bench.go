@@ -40,7 +40,8 @@ functions and configured the provider.`,
 		switch benchCmdConfig.benchName {
 		case "one-shot":
 			var err error
-			bench, err = cfbench.NewOneShot(srkConfig.logger)
+			benchLogger := srkConfig.logger.WithField("module", "benchmark.one-shot")
+			bench, err = cfbench.NewOneShot(benchLogger)
 			if err != nil {
 				return errors.Wrap(err, "Failed to initialize OneShot benchmark")
 			}

@@ -9,11 +9,11 @@ import (
 )
 
 type oneShotBench struct {
-	log *logrus.Logger
+	log logrus.FieldLogger
 }
 
 // An srk.BenchFactory for the oneshot benchmark
-func NewOneShot(logger *logrus.Logger) (srk.Benchmark, error) {
+func NewOneShot(logger srk.Logger) (srk.Benchmark, error) {
 	return &oneShotBench{log: logger}, nil
 }
 

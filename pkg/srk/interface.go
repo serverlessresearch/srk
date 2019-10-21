@@ -48,7 +48,7 @@ type FunctionService interface {
 	Destroy()
 }
 
-type FunctionServiceFactory func(logger *logrus.Logger, config *viper.Viper) (FunctionService, error)
+type FunctionServiceFactory func(logger Logger, config *viper.Viper) (FunctionService, error)
 
 // Benchmarks
 type BenchArgs struct {
@@ -64,4 +64,8 @@ type Benchmark interface {
 }
 
 // Every distinct benchmark should provide a factory
-type BenchFactory func(logger *logrus.Logger) (Benchmark, error)
+type BenchFactory func(logger Logger) (Benchmark, error)
+
+// Alias logrus FieldLogger in case we want to change the logging behavior in
+// the future (e.g. add methods to the interface)
+type Logger logrus.FieldLogger

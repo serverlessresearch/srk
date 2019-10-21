@@ -19,7 +19,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/pkg/errors"
 	"github.com/serverlessresearch/srk/pkg/srk"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -30,10 +29,10 @@ type awsLambdaConfig struct {
 	vpcConfig string
 	region    string
 	session   *lambda.Lambda
-	log       *logrus.Logger
+	log       srk.Logger
 }
 
-func NewConfig(logger *logrus.Logger, config *viper.Viper) (srk.FunctionService, error) {
+func NewConfig(logger srk.Logger, config *viper.Viper) (srk.FunctionService, error) {
 	awsCfg := &awsLambdaConfig{
 		role:      config.GetString("role"),
 		vpcConfig: config.GetString("vpc-config"),

@@ -14,7 +14,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/serverlessresearch/srk/pkg/srk"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -25,10 +24,10 @@ type olConfig struct {
 	dir string
 	// Keeps track of if we've started an ol worker or not
 	sessionStarted bool
-	log            *logrus.Logger
+	log            srk.Logger
 }
 
-func NewConfig(logger *logrus.Logger, config *viper.Viper) (srk.FunctionService, error) {
+func NewConfig(logger srk.Logger, config *viper.Viper) (srk.FunctionService, error) {
 	olCfg := &olConfig{
 		config.GetString("olcmd"),
 		config.GetString("oldir"),
