@@ -96,7 +96,7 @@ func (o *LocalObjStore) Put(ctx context.Context, r *pb.PutRequest) (*empty.Empty
 }
 
 // Delete an object by removing the local file
-func (o *LocalObjStore) Delete(ctx context.Context, r *pb.DeleteRequest) (*empty.Empty, error) {
+func (o *LocalObjStore) DeleteObject(ctx context.Context, r *pb.DeleteRequest) (*empty.Empty, error) {
 	err := os.Remove(path.Join(o.storageDir, r.GetBucketName(), r.GetObjectName()))
 	if err != nil {
 		return nil, errorHandler(err)
@@ -119,9 +119,9 @@ var (
 )
 
 func main() {
-    // Parse flags
+	// Parse flags
 	flag.Parse()
-    // Create a TCP listerner
+	// Create a TCP listerner
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)

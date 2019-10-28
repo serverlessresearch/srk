@@ -100,7 +100,7 @@ KeyResponse get_request(KvsClientInterface *client, Key key) {
   }
 
   KeyResponse response = responses[0];
-  assert(response.tuples(0).lattice_type() == LatticeType::SET);
+  // assert(response.tuples(0).lattice_type() == LatticeType::SET);
 
   return response;
 }
@@ -110,44 +110,19 @@ class LocalObjStoreImpl final : public ObjectStore::Service {
   // essentially upload a kv pair <bucket name, empty set>,
   // will overwrite it if the key exists.
   Status createBucket(ServerContext* context,
-                    const CreateBucketRequest& request, Empty* reply) {
-    Key key = request.bucketname();
+                    const CreateBucketRequest* request, Empty* reply) override {
+    Key key = request->bucketname();
     SetLattice<std::string> val;  // empty set lattice
+    val.insert("");
 
     return put_request(this->getAnnaClient(), key, serialize(val));
-    // string rid = this->getAnnaClient()->put_async(
-    //                     key, serialize(val), LatticeType::LWW);
-    // vector<KeyResponse> responses = this->getAnnaClient()->receive_async();
-    // while (responses.size() == 0) {
-    //   responses = this->getAnnaClient()->receive_async();
-    // }
-    // // what if there are more than 1 responses?
-    // KeyResponse response = responses[0];
-    // if (response.response_id() != rid) {
-    //   // rarely happens
-    //   std::cout << "Invalid response: ID did not match request ID!"
-    //             << std::endl;
-    // }
-    // return statusHandler(response);
   }
 
   Status listBucket(ServerContext* context,
-        const ListBucketRequest& request, ListBucketResponse* reply) {
-    Key key = request.bucketname();
+        const ListBucketRequest* request, ListBucketResponse* reply) override  {
+    Key key = request->bucketname();
     KeyResponse response = get_request(this->getAnnaClient(), key);
-    // this->getAnnaClient()->get_async(key);
-    // vector<KeyResponse> responses = this->getAnnaClient()->receive_async();
-    // while (responses.size() == 0) {
-    //   responses = this->getAnnaClient()->receive_async();
-    // }
-
-    // if (responses.size() > 1) {
-    //   // shouldn't happen unless you request put_all/get_all
-    //   std::cout << "Error: received more than one response" << std::endl;
-    // }
-
-    // KeyResponse response = responses[0];
-    // assert(response.tuples(0).lattice_type() == LatticeType::LWW);
+    
     Status status = statusHandler(response);
     if (!status.ok())
       return status;
@@ -163,8 +138,8 @@ class LocalObjStoreImpl final : public ObjectStore::Service {
   }
 
   Status deleteBucket(ServerContext* context,
-                    const DeleteBucketRequest& request, Empty* reply) {
-    Key key = request.bucketname();
+                    const DeleteBucketRequest* request, Empty* reply) override {
+    Key key = request->bucketname();
     // check if bucket is empty
     KeyResponse response = get_request(this->getAnnaClient(), key);
     Status status = statusHandler(response);
@@ -172,39 +147,27 @@ class LocalObjStoreImpl final : public ObjectStore::Service {
       return status;
     SetLattice<std::string> set_lattice =
         deserialize_set(response.tuples(0).payload());
-    if (set_lattice.size().reveal() > 0)
+    if (set_lattice.size().reveal() > 1) // a bucket always have an empty objectname
       return Status(StatusCode::PERMISSION_DENIED,
                     "Cannot delelet a nonempty bucket!");
     // delete the bucket
     return put_request(this->getAnnaClient(), key, string());
-    // string rid = this->getAnnaClient()->put_async(
-    //                     key, string(), LatticeType::LWW);
-    // vector<KeyResponse> responses = this->getAnnaClient()->receive_async();
-    // while (responses.size() == 0) {
-    //   responses = this->getAnnaClient()->receive_async();
-    // }
-
-    // KeyResponse response = responses[0];
-    // if (response.response_id() != rid) {
-    //   std::cout << "Invalid response: ID did not match request ID!"
-    //             << std::endl;
-    // }
-    // return statusHandler(response);
   }
 
   Status get(ServerContext* context,
-             const GetRequest& request, GetResponse* reply) {
-    Key key = request.bucketname();
+             const GetRequest* request, GetResponse* reply) override {
+    Key key = request->bucketname();
     // get the pair <bucketname, set of objectnames>
     KeyResponse response = get_request(this->getAnnaClient(), key);
     Status status = statusHandler(response);
     if (!status.ok())
       return status;
+
     SetLattice<std::string> set_lattice =
         deserialize_set(response.tuples(0).payload());
     std::unordered_set<string> filenames = set_lattice.reveal();
     // check if the object exists in the bucket
-    string filename = request.objectname();
+    string filename = request->objectname();
     string objname = key + "/" + filename;
     if (filenames.find(objname) == filenames.end()) {
       return Status(StatusCode::NOT_FOUND, "Object doesn't exist!");
@@ -224,32 +187,48 @@ class LocalObjStoreImpl final : public ObjectStore::Service {
   }
 
   Status put(ServerContext* context,
-             const PutRequest& request, Empty* reply) {
-    Key key = request.bucketname();
+             const PutRequest* request, Empty* reply) override {
+    Key key = request->bucketname();
     // get the pair <bucketname, set of object names>
     KeyResponse response = get_request(this->getAnnaClient(), key);
     Status status = statusHandler(response);
-    if (!status.ok())  // shouuld fail if no such keyVal exists
+    if (!status.ok())  // should fail if no such keyVal exists
       return status;
     SetLattice<std::string> set_lattice =
         deserialize_set(response.tuples(0).payload());
     std::unordered_set<string> filenames = set_lattice.reveal();
     // first add the object name to the bucket
-    string filename = request.objectname();
+    string filename = request->objectname();
     string objname = key + "/" + filename;
     set_lattice.insert(objname);
     status = put_request(this->getAnnaClient(), key,
                                 serialize(set_lattice));
     // second, put the object
-    string data = request.data();
-    LWWPairLattice<string> val(
-        TimestampValuePair<string>(generate_timestamp(0), data));
-    return put_request(this->getAnnaClient(), objname, serialize(val));
+    string data = request->data();
+    LWWPairLattice<std::string> val(
+        TimestampValuePair<std::string>(generate_timestamp(0), data));
+    
+    string rid = this->getAnnaClient()->put_async(
+                        objname, serialize(val), LatticeType::LWW);
+    vector<KeyResponse> responses = this->getAnnaClient()->receive_async();
+    while (responses.size() == 0) {
+      responses = this->getAnnaClient()->receive_async();
+    }
+    response = responses[0];
+
+    if (response.response_id() != rid) {
+      // rarely happens
+      std::cout << "Invalid response: ID did not match request ID!"
+                << std::endl;
+    }
+
+    return statusHandler(response);
+    // return put_request(this->getAnnaClient(), objname, serialize(val));
   }
 
   Status deleteObject(ServerContext* context,
-                const DeleteRequest& request, Empty* reply) {
-    Key key = request.bucketname();
+                const DeleteRequest* request, Empty* reply) override {
+    Key key = request->bucketname();
     // get the pair <bucketname, set of object names>
     KeyResponse response = get_request(this->getAnnaClient(), key);
     Status status = statusHandler(response);
@@ -259,17 +238,41 @@ class LocalObjStoreImpl final : public ObjectStore::Service {
         deserialize_set(response.tuples(0).payload());
     std::unordered_set<string> filenames = set_lattice.reveal();
     // first remove the objectname from the bucket
-    string filename = request.objectname();
+    string filename = request->objectname();
     string objname = key + "/" + filename;
     int num = filenames.erase(objname);
     if (num == 0)  // objectname doesn't exist in the bucket
       return Status(StatusCode::NOT_FOUND, "Not Found!");
+    
+    SetLattice<std::string> emptySet;
+    status = put_request(this->getAnnaClient(), key, serialize(emptySet));
+    if (!status.ok())
+      return status;
+    
     SetLattice<std::string> val(filenames);
     status = put_request(this->getAnnaClient(), key, serialize(val));
     if (!status.ok())
       return status;
     // finally delete the object
-    return put_request(this->getAnnaClient(), objname, string());
+    string emptyString = string();
+    LWWPairLattice<std::string> emp(
+        TimestampValuePair<std::string>(generate_timestamp(0), emptyString));
+    string rid = this->getAnnaClient()->put_async(
+                        objname, serialize(emp), LatticeType::LWW);
+    vector<KeyResponse> responses = this->getAnnaClient()->receive_async();
+    while (responses.size() == 0) {
+      responses = this->getAnnaClient()->receive_async();
+    }
+    response = responses[0];
+
+    if (response.response_id() != rid) {
+      // rarely happens
+      std::cout << "Invalid response: ID did not match request ID!"
+                << std::endl;
+    }
+
+    return statusHandler(response);
+    //return put_request(this->getAnnaClient(), objname, string());
   }
 
   KvsClientInterface *annaClient;
@@ -282,7 +285,7 @@ class LocalObjStoreImpl final : public ObjectStore::Service {
 };
 
 void RunServer(KvsClientInterface *client) {
-  std::string server_address("0.0.0.0:50051");
+  std::string server_address("127.0.0.1:50051");
   LocalObjStoreImpl service(client);
 
   ServerBuilder builder;
@@ -291,6 +294,8 @@ void RunServer(KvsClientInterface *client) {
   // Register "service" as the instance through which we'll communicate with
   // clients. In this case, it corresponds to an *synchronous* service.
   builder.RegisterService(&service);
+  // Set mxax message size to INT_MAX
+  builder.SetMaxReceiveMessageSize(INT_MAX);
   // Finally assemble the server.
   std::unique_ptr<Server> server(builder.BuildAndStart());
   std::cout << "Server listening on " << server_address << std::endl;
