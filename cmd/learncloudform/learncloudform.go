@@ -40,16 +40,19 @@ sudo -u ec2-user bash -c '/usr/local/bin/go get -v -d github.com/serverlessresea
 sudo -u ec2-user bash -c 'cd /home/ec2-user; nohup /home/ec2-user/go/bin/benchcontrol 2>&1 > benchcontrol.log&'
 `
 
-func buildTemplate() ([]byte, error) {
-	cert, key, err := srk.CreateServerKeyPair([]string{"127.0.0.1"})
+func addIp(t *cft.Template) {
+	t.Resources["eip"] = &ec2.EIP{}
+}
+
+func addServer(t *cft.Template) error {
+	cert, key, err := srk.CreateServerKeyPair([]string{"*.us-west-2.compute.amazonaws.com"})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	fmt.Printf("have certificate %s\n", string(cert))
 	fmt.Printf("have key %s\n", string(key))
 
 
-	template := cft.NewTemplate()
 	server := ec2.Instance{
 		//AvailabilityZone:    "",
 		//BlockDeviceMappings: nil,
@@ -70,8 +73,8 @@ func buildTemplate() ([]byte, error) {
 		UserData:                          base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(setupScript, cert, key))),
 		Volumes:                           nil,
 	}
-	template.Resources["myserver"] = &server
-	return template.JSON()
+	t.Resources["myserver"] = &server
+	return nil
 }
 
 
@@ -84,13 +87,14 @@ func main() {
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 
-	// Create CloudFormation client in region
-	templateText, err := buildTemplate()
+	template := cft.NewTemplate()
+	//addIp(template)
+	err := addServer(template)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
-	stackName := "mystack8"
+	stackName := "mystack9"
 	svc := cloudformation.New(sess)
 
 	//cloudformation.DescribeStacksInput{}
@@ -100,6 +104,12 @@ func main() {
 	}
 	fmt.Print(dso)
 
+	// Create CloudFormation client in region
+	templateText, err := template.JSON()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Print(string(templateText))
 	input := &cloudformation.CreateStackInput{TemplateBody: aws.String(string(templateText)), StackName: aws.String(stackName)}
 	cso, err := svc.CreateStack(input)
 	if err != nil {
@@ -114,6 +124,10 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	//// Now get the ip address
+	//template.addServer()
+
 
 	fmt.Println("Created stack " + stackName)
 

@@ -132,10 +132,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to load srk key: %s", err)
 	}
-	if len(cert.Certificate) != 1 {
-		log.Fatal("srk.crt should have 1 certificate")
+	if len(cert.Certificate) != 2 {
+		log.Fatal("srk.crt should have 2 certificates")
 	}
-	ca, err := x509.ParseCertificate(cert.Certificate[0])
+	ca, err := x509.ParseCertificate(cert.Certificate[1])
 	if err != nil {
 		log.Fatal(err)
 	}

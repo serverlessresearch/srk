@@ -133,6 +133,12 @@ func createServerKeyPair(parent *x509.Certificate, signingPriv *rsa.PrivateKey, 
 		return nil, nil, err
 	}
 
+	parentCert, err := ioutil.ReadFile(certificatePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	cert.Write(parentCert)
+	
 	keyBytes, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
 		return nil, nil, err
