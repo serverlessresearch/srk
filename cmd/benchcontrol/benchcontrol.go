@@ -11,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"net/rpc"
-	"strconv"
 	"time"
 )
 
@@ -90,12 +89,9 @@ func NewServer(launch <-chan cfbench.LaunchMessage, complete chan<- cfbench.Comp
 					cmdJson = cmdJson[lenWritten:]
 				}
 			case "end":
-				var referenceId int
-				referenceId, err = strconv.Atoi(data["Reference"].(string))
-				if err != nil {
-					break
-				}
-				complete <- cfbench.CompletionMessage{referenceId}
+				var referenceId string
+				referenceId = data["Reference"].(string)
+				complete <- cfbench.CompletionMessage{referenceId, true}
 				_, err = fmt.Fprintf(w, "Thanks for the event.")
 			}
 			if err != nil {
@@ -132,6 +128,17 @@ func main() {
 	}
 	_, err := NewServer(launchChannel, completionChannel)
 
+	invoker := cfbench.NewLambdaAsyncInvoker()
+	go func() {
+		for {
+			lm := <-launchChannel
+			err := invoker.Invoke(lm.ReferenceId, "exp", "172.31.23.31:6001", "sleepworkload", nil)
+			if err != nil {
+				completionChannel <- cfbench.CompletionMessage{lm.ReferenceId, false}
+			}
+		}
+	}()
+
 	err = rpc.Register(r)
 	if err != nil {
 		log.Fatal(err)
@@ -160,6 +167,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Print("Benchmark control server started")
 	//noinspection GoUnhandledErrorResult
 	defer listener.Close()
 	rpc.Accept(listener)

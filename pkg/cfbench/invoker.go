@@ -23,27 +23,6 @@ func genExperimentId() string {
 	return hex.EncodeToString(bytes)
 }
 
-type stringSet map[string]struct{}
-
-var member struct{}
-
-func (s *stringSet) add(key string) {
-	(*s)[key] = member
-}
-
-func (s *stringSet) remove(key string) {
-	delete(*s, key)
-}
-
-func (s *stringSet) contains(key string) bool {
-	_, exists := (*s)[key]
-	return exists
-}
-
-func (s *stringSet) size() int {
-	return len(*s)
-}
-
 type progress struct {
 	updateNotice                                  chan bool
 	experimentId                                  string

@@ -1,6 +1,9 @@
 package cfbench
 
-import "time"
+import (
+	"log"
+	"time"
+)
 
 type ExperimentRunner struct {
 	LaunchChannel     chan<- LaunchMessage
@@ -21,23 +24,33 @@ type ExperimentRunResponse struct {
 }
 
 func (er *ExperimentRunner) ConcurrencyScan(req ConcurrencyScanRequest, resp *ExperimentRunResponse) error {
-	var concurrencySpans []ConcurrencySpan
-	totalDuration := time.Duration(req.LevelDuration*req.NumLevels) * time.Second
+	//var scanComplete = make(chan struct{})
+	log.Printf("starting concurrency scan %+v", req)
+	var (
+		concurrencySpans []ConcurrencySpan
+		concurrency      int
+		totalDuration    = time.Duration(req.LevelDuration*req.NumLevels) * time.Second
+		stepConcurrency  = (req.EndConcurrency - req.BeginConcurrency) / (req.NumLevels - 1)
+	)
 	for c := 0; c < req.NumLevels; c++ {
+		if c == 0 {
+			concurrency = req.BeginConcurrency
+		} else {
+			concurrency = stepConcurrency
+		}
 		concurrencySpans = append(concurrencySpans, ConcurrencySpan{
-			concurrency: req.BeginConcurrency + (req.EndConcurrency-req.BeginConcurrency)/(req.NumLevels-1),
+			concurrency: concurrency,
 			begin:       time.Duration(c*req.LevelDuration) * time.Second,
 			end:         totalDuration,
 		})
 	}
-	//launchChannel := make(chan LaunchMessage)
-	//completionChannel := make(chan CompletionMessage)
+
 	cc, err := NewConcurrencyControl(concurrencySpans, er.LaunchChannel, er.CompletionChannel)
 	if err != nil {
 		return err
 	}
 	cc.Run()
-	resp.Success = false
+	resp.Success = true
 	return nil
 }
 

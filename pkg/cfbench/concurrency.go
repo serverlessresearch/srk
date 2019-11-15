@@ -1,17 +1,20 @@
 package cfbench
 
 import (
+	"github.com/google/uuid"
+	"log"
 	"sort"
 	"time"
 )
 
 type LaunchMessage struct {
 	Duration    time.Duration
-	ReferenceId int
+	ReferenceId string
 }
 
 type CompletionMessage struct {
-	ReferenceId int
+	ReferenceId string
+	Success     bool
 }
 
 type TransitionPoint struct {
@@ -62,24 +65,43 @@ func (cc *ConcurrencyControl) Run() {
 	var spanChangeIndex = 0
 	var startTime = time.Now()
 	var spanChangeTimer = time.NewTimer(spanChanges[spanChangeIndex].when)
-	for ; spanChangeIndex < len(spanChanges); {
+
+	var running = make(map[string]int)
+
+	launchNew := func(maxDuration time.Duration, spanId int) {
+		id, err := uuid.NewRandom()
+		if err != nil {
+			log.Fatal(err)
+		}
+		idStr := id.String()
+		running[idStr] = spanId
+		cc.launchChannel <- LaunchMessage{maxDuration, idStr}
+	}
+
+	for spanChangeIndex < len(spanChanges) || len(running) > 0 {
+		log.Printf("looping, index is %d", spanChangeIndex)
 		select {
 		case cm := <-cc.completionChannel:
-			endTime, found := activeSpanEnds[cm.ReferenceId]
-			if found {
-				elapsed := time.Now().Sub(startTime)
-				if elapsed < endTime {
-					cc.launchChannel <- LaunchMessage{endTime - elapsed, cm.ReferenceId}
+			if spanId, ok := running[cm.ReferenceId]; ok {
+				delete(running, cm.ReferenceId)
+				endTime, spanActive := activeSpanEnds[spanId]
+				if spanActive {
+					elapsed := time.Now().Sub(startTime)
+					if elapsed < endTime {
+						launchNew(endTime-elapsed, spanId)
+					}
 				}
 			}
 		case <-spanChangeTimer.C:
 			spanChange := spanChanges[spanChangeIndex]
+			log.Printf("span change %+v", spanChange)
 			elapsed := time.Now().Sub(startTime)
 			if spanChange.active {
 				span := cc.concurrencySpans[spanChange.spanId]
 				maxDuration := span.end - elapsed
+				log.Printf("number to launch is %d\n", span.concurrency)
 				for i := 0; i < span.concurrency; i++ {
-					cc.launchChannel <- LaunchMessage{maxDuration, spanChange.spanId}
+					launchNew(maxDuration, spanChange.spanId)
 				}
 				activeSpanEnds[spanChange.spanId] = span.end
 			} else {
@@ -91,4 +113,5 @@ func (cc *ConcurrencyControl) Run() {
 			}
 		}
 	}
+	log.Printf("scan done\n")
 }

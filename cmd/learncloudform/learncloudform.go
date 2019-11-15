@@ -37,7 +37,21 @@ sudo -u ec2-user bash -c '/usr/local/bin/go get -v -d github.com/serverlessresea
     cd /home/ec2-user/go/src/github.com/serverlessresearch/srk/;\
     git checkout benchmark;\
     /usr/local/bin/go install ./...'
-sudo -u ec2-user bash -c 'cd /home/ec2-user; nohup /home/ec2-user/go/bin/benchcontrol 2>&1 > benchcontrol.log&'
+
+echo '[Unit]
+Description=SRK Benchmark Control
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user
+ExecStart=/home/ec2-user/go/bin/benchcontrol
+
+[Install]
+WantedBy=multi-user.target' > /etc/systemd/system/benchcontrol.service 
+
+systemctl enable benchcontrol
+systemctl start benchcontrol
 `
 
 func addIp(t *cft.Template) {

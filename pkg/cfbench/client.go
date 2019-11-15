@@ -14,13 +14,6 @@ type benchClient struct {
 
 func (bc *benchClient) RunBench(prov *srk.Provider, args *srk.BenchArgs) error {
 	cert, err := srk.LoadKeyPair()
-	//cert, err := tls.LoadX509KeyPair("certs/client.crt", "certs/client.key")
-	//if err != nil {
-	//	bc.log.Fatalf("client: loadkeys: %s", err)
-	//}
-	//if len(cert.Certificate) != 2 {
-	//	bc.log.Fatal("client.crt should have 2 concatenated certificates: client + CA")
-	//}
 	ca, err := x509.ParseCertificate(cert.Certificate[0])
 	if err != nil {
 		return err
@@ -30,8 +23,10 @@ func (bc *benchClient) RunBench(prov *srk.Provider, args *srk.BenchArgs) error {
 	config := tls.Config{
 		Certificates: []tls.Certificate{*cert},
 		RootCAs:      certPool,
+		InsecureSkipVerify: true,
 	}
-	conn, err := tls.Dial("tcp", "ec2-34-219-59-68.us-west-2.compute.amazonaws.com:6000", &config)
+	//conn, err := tls.Dial("tcp", "ec2-34-219-59-68.us-west-2.compute.amazonaws.com:6000", &config)
+	conn, err := tls.Dial("tcp", "localhost:6000", &config)
 	//conn, err := tls.Dial("tcp", "34.219.59.68:6000", &config)
 	if err != nil {
 		bc.log.Fatalf("client: dial: %s", err)
