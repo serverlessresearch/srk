@@ -94,7 +94,7 @@ func main() {
 		panic(err)
 	}
 
-	stackName := "mystack9"
+	stackName := "mystack12"
 	svc := cloudformation.New(sess)
 
 	//cloudformation.DescribeStacksInput{}

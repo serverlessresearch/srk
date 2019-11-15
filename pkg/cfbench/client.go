@@ -30,9 +30,9 @@ func (bc *benchClient) RunBench(prov *srk.Provider, args *srk.BenchArgs) error {
 	config := tls.Config{
 		Certificates: []tls.Certificate{*cert},
 		RootCAs:      certPool,
-		InsecureSkipVerify: true,
+		//InsecureSkipVerify: true,
 	}
-	conn, err := tls.Dial("tcp", "54.202.88.203:6000", &config)
+	conn, err := tls.Dial("tcp", "ec2-34-220-175-216.us-west-2.compute.amazonaws.com:6000", &config)
 	if err != nil {
 		bc.log.Fatalf("client: dial: %s", err)
 	}

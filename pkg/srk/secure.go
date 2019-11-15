@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -44,8 +45,9 @@ func newCertificateTemplate() x509.Certificate {
 		Subject: pkix.Name{
 			Organization: []string{"Serverless Research Kit"},
 		},
-		NotBefore: notBefore,
-		NotAfter:  notAfter,
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		IsCA:                  true,
 		BasicConstraintsValid: true,
 	}
 }
@@ -59,8 +61,8 @@ func createCertificates() error {
 	}
 
 	template := newCertificateTemplate()
-	template.KeyUsage = x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
-	template.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+	template.KeyUsage = x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign
+	template.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
 
 	certBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
 	if err != nil {
@@ -106,6 +108,21 @@ func createServerKeyPair(parent *x509.Certificate, signingPriv *rsa.PrivateKey, 
 	var priv *rsa.PrivateKey
 	var err error
 
+	if parent.KeyUsage&x509.KeyUsageCertSign == 0 {
+		return nil, nil, errors.New("must provide a parent key with signing usage")
+	}
+
+	hasServerAuthUsage := false
+	for _, u := range parent.ExtKeyUsage {
+		if u == x509.ExtKeyUsageServerAuth {
+			hasServerAuthUsage = true
+			break
+		}
+	}
+	if !hasServerAuthUsage {
+		return nil, nil, errors.New("must provide a parent key with server auth usage")
+	}
+
 	priv, err = rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, nil, err
@@ -138,7 +155,7 @@ func createServerKeyPair(parent *x509.Certificate, signingPriv *rsa.PrivateKey, 
 		return nil, nil, err
 	}
 	cert.Write(parentCert)
-	
+
 	keyBytes, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
 		return nil, nil, err
