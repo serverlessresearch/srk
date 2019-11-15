@@ -36,6 +36,7 @@ func (i *LambdaAsyncInvoker) Invoke(invocationId string, experimentId string, tr
 	}
 	payload, err := json.Marshal(args)
 
+	log.Printf("invocation arguments %+v", args)
 	res, err := i.client.Invoke(&lambda.InvokeInput{FunctionName: aws.String(functionName), Payload: payload, InvocationType: aws.String("Event") })
 	if err != nil {
 		log.Fatal("Error invoking function", err)
