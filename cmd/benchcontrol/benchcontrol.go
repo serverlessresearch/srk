@@ -57,12 +57,12 @@ func NewServer(launch <-chan cfbench.LaunchMessage, complete chan<- cfbench.Comp
 		Actions:
 			switch data["Action"] {
 			case "begin":
-				log.Printf("begin action\n")
+				log.Printf("begin action on ExecutionId: %s\n", data["ExecutionId"])
 				startTime := time.Now()
 				lm := <-launch
 				waitTime := time.Now().Sub(startTime)
 				runDuration := lm.Duration
-				if timeoutProvided, ok := data["timeout"]; ok {
+				if timeoutProvided, ok := data["Timeout"]; ok {
 					timeout := timeoutProvided.(json.Number)
 					ftimeout, err := timeout.Float64()
 					if err != nil {
@@ -90,6 +90,7 @@ func NewServer(launch <-chan cfbench.LaunchMessage, complete chan<- cfbench.Comp
 					cmdJson = cmdJson[lenWritten:]
 				}
 			case "end":
+				log.Printf("end action on ExecutionId: %s\n", data["ExecutionId"])
 				var referenceIdInterface interface{}
 				var referenceId string
 				var ok bool
@@ -99,7 +100,7 @@ func NewServer(launch <-chan cfbench.LaunchMessage, complete chan<- cfbench.Comp
 				if referenceId, ok = referenceIdInterface.(string); !ok {
 					panic("xxx")
 				}
-				log.Printf("end action: %s\n", referenceId)
+				//log.Printf("end action: %s\n", referenceId)
 				complete <- cfbench.CompletionMessage{referenceId, true}
 				_, err = fmt.Fprintf(w, "Thanks for the event.")
 			}
