@@ -21,10 +21,6 @@ type ConcurrencySweepArgs struct {
 	StepDuration int `json:"step_duration"`
 }
 
-type TransitionPoint struct {
-	concurrency int
-	when        time.Duration
-}
 
 func NewConcurrencySweepBench(mode string, params string) *ConcurrencySweepBench {
 	return &ConcurrencySweepBench{

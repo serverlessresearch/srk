@@ -47,7 +47,13 @@ functions and configured the provider.`,
 			}
 
 		case "concurrency-scan":
-			return errors.New("Concurrency scan not implemented yet")
+			var err error
+			benchLogger := srkConfig.logger.WithField("module", "benchmark.concurrency-scan")
+			bench, err = cfbench.NewClient(benchLogger)
+			if err != nil {
+				return errors.Wrap(err, "Failed to initialize concurrency scan benchmark")
+			}
+
 		default:
 			return errors.New("Unrecognized benchmark: " + benchCmdConfig.benchName)
 		}
