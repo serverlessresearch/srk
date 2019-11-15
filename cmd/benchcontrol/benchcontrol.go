@@ -99,7 +99,7 @@ func NewServer(launch <-chan cfbench.LaunchMessage, complete chan<- cfbench.Comp
 				if referenceId, ok = referenceIdInterface.(string); !ok {
 					panic("xxx")
 				}
-				log.Printf("begin action: %s\n", referenceId)
+				log.Printf("end action: %s\n", referenceId)
 				complete <- cfbench.CompletionMessage{referenceId, true}
 				_, err = fmt.Fprintf(w, "Thanks for the event.")
 			}
