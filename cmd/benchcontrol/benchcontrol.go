@@ -57,6 +57,7 @@ func NewServer(launch <-chan cfbench.LaunchMessage, complete chan<- cfbench.Comp
 		Actions:
 			switch data["action"] {
 			case "begin":
+				log.Printf("begin action\n")
 				startTime := time.Now()
 				lm := <-launch
 				waitTime := time.Now().Sub(startTime)
@@ -91,6 +92,7 @@ func NewServer(launch <-chan cfbench.LaunchMessage, complete chan<- cfbench.Comp
 			case "end":
 				var referenceId string
 				referenceId = data["Reference"].(string)
+				log.Printf("begin action: %s\n", referenceId)
 				complete <- cfbench.CompletionMessage{referenceId, true}
 				_, err = fmt.Fprintf(w, "Thanks for the event.")
 			}

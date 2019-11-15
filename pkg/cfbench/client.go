@@ -25,8 +25,8 @@ func (bc *benchClient) RunBench(prov *srk.Provider, args *srk.BenchArgs) error {
 		RootCAs:      certPool,
 		InsecureSkipVerify: true,
 	}
-	//conn, err := tls.Dial("tcp", "ec2-34-219-59-68.us-west-2.compute.amazonaws.com:6000", &config)
-	conn, err := tls.Dial("tcp", "localhost:6000", &config)
+	conn, err := tls.Dial("tcp", "ec2-34-217-114-50.us-west-2.compute.amazonaws.com:6000", &config)
+	//conn, err := tls.Dial("tcp", "localhost:6000", &config)
 	//conn, err := tls.Dial("tcp", "34.219.59.68:6000", &config)
 	if err != nil {
 		bc.log.Fatalf("client: dial: %s", err)
