@@ -31,9 +31,7 @@ type RunCommand struct {
 	Reference   string
 }
 
-func NewServer(launch chan cfbench.LaunchMessage, complete chan cfbench.CompletionMessage) (*BenchControlServer, error) {
-	var srv = http.Server{Addr: ":3000"}
-
+func NewServer(launch <-chan cfbench.LaunchMessage, complete chan<- cfbench.CompletionMessage) (*BenchControlServer, error) {
 	mux := http.NewServeMux()
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := fmt.Fprintf(w, "Serverless Experiment Controller")
@@ -109,31 +107,42 @@ func NewServer(launch chan cfbench.LaunchMessage, complete chan cfbench.Completi
 		}
 	}))
 
-	if err := srv.ListenAndServe(); err != nil {
-		switch err {
-		case http.ErrServerClosed:
-			log.Printf("server shutting down")
-		default:
-			log.Fatal(err)
+	var srv = http.Server{Addr: ":6001", Handler: mux}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			switch err {
+			case http.ErrServerClosed:
+				log.Printf("server shutting down")
+			default:
+				log.Fatal(err)
+			}
 		}
-	}
+	}()
 	return &BenchControlServer{srv}, nil
 }
 
 
 func main() {
-	r := &cfbench.ExperimentRunner{}
-	err := rpc.Register(r)
+	var launchChannel = make(chan cfbench.LaunchMessage)
+	var completionChannel = make(chan cfbench.CompletionMessage)
+	r := &cfbench.ExperimentRunner{
+		LaunchChannel:     launchChannel,
+		CompletionChannel: completionChannel,
+	}
+	_, err := NewServer(launchChannel, completionChannel)
+
+	err = rpc.Register(r)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	cert, err := tls.LoadX509KeyPair("config/server.crt", "config/server.key")
 	if err != nil {
-		log.Fatalf("failed to load srk key: %s", err)
+		log.Fatalf("failed to load server key: %s", err)
 	}
 	if len(cert.Certificate) != 2 {
-		log.Fatal("srk.crt should have 2 certificates")
+		log.Fatal("server.crt should have 2 certificates")
 	}
 	ca, err := x509.ParseCertificate(cert.Certificate[1])
 	if err != nil {
@@ -147,7 +156,7 @@ func main() {
 		ClientCAs:    certPool,
 	}
 	config.Rand = rand.Reader
-	listener, err := tls.Listen("tcp", "0.0.0.0:6000", &config)
+	listener, err := tls.Listen("tcp", ":6000", &config)
 	if err != nil {
 		log.Fatal(err)
 	}

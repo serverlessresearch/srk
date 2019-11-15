@@ -30,9 +30,9 @@ func (bc *benchClient) RunBench(prov *srk.Provider, args *srk.BenchArgs) error {
 	config := tls.Config{
 		Certificates: []tls.Certificate{*cert},
 		RootCAs:      certPool,
-		//InsecureSkipVerify: true,
 	}
-	conn, err := tls.Dial("tcp", "ec2-34-220-175-216.us-west-2.compute.amazonaws.com:6000", &config)
+	conn, err := tls.Dial("tcp", "ec2-34-219-59-68.us-west-2.compute.amazonaws.com:6000", &config)
+	//conn, err := tls.Dial("tcp", "34.219.59.68:6000", &config)
 	if err != nil {
 		bc.log.Fatalf("client: dial: %s", err)
 	}
@@ -43,8 +43,8 @@ func (bc *benchClient) RunBench(prov *srk.Provider, args *srk.BenchArgs) error {
 		FunctionName:     args.FName,
 		BeginConcurrency: 2,
 		EndConcurrency:   10,
-		NumSteps:         5,
-		StepDuration:     3,
+		NumLevels:        5,
+		LevelDuration:    3,
 	}
 
 	var statusResp StatusResponse

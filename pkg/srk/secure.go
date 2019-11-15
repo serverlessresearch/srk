@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-const certificatePath = "configs/srk.cert"
+const certificatePath = "configs/srk.crt"
 const keyPath = "configs/srk.key"
 
 func requireCertificates() error {

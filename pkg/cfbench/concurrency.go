@@ -27,11 +27,11 @@ type ConcurrencySpan struct {
 
 type ConcurrencyControl struct {
 	concurrencySpans  []ConcurrencySpan
-	launchChannel     chan LaunchMessage
-	completionChannel chan CompletionMessage
+	launchChannel     chan<- LaunchMessage
+	completionChannel <-chan CompletionMessage
 }
 
-func NewConcurrencyControl(concurrencySpans []ConcurrencySpan, launchChannel chan LaunchMessage, completionChannel chan CompletionMessage) (*ConcurrencyControl, error) {
+func NewConcurrencyControl(concurrencySpans []ConcurrencySpan, launchChannel chan<- LaunchMessage, completionChannel <-chan CompletionMessage) (*ConcurrencyControl, error) {
 	//if len(concurrencySpans) < 2 {
 	//	return nil, errors.New("must provide at least two transition points")
 	//}
