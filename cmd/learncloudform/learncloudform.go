@@ -37,6 +37,7 @@ sudo -u ec2-user bash -c '/usr/local/bin/go get -v -d github.com/serverlessresea
     cd /home/ec2-user/go/src/github.com/serverlessresearch/srk/;\
     git checkout benchmark;\
     /usr/local/bin/go install ./...'
+sudo -u ec2-user bash -c 'cd /home/ec2-user; nohup /home/ec2-user/go/bin/benchcontrol 2>&1 > benchcontrol.log&'
 `
 
 func buildTemplate() ([]byte, error) {

@@ -128,7 +128,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	cert, err := tls.LoadX509KeyPair("config/srk.crt", "config/srk.key")
+	cert, err := tls.LoadX509KeyPair("config/server.crt", "config/server.key")
 	if err != nil {
 		log.Fatalf("failed to load srk key: %s", err)
 	}
