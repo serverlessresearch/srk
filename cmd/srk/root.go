@@ -1,7 +1,7 @@
 // Root of command-line argument parsing.
 // This file was based off the standard cobra template, see
 // https://github.com/spf13/cobra
-package cmd
+package srk
 
 import (
 	"fmt"

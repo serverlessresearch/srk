@@ -1,6 +1,6 @@
 // The 'srk function clean' command. This cleans up any local packages or build
 // files for the specified function.
-package cmd
+package srk
 
 import (
 	"os"

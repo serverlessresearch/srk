@@ -1,5 +1,5 @@
 // Handle the "srk bench" command
-package cmd
+package srk
 
 import (
 	"net"

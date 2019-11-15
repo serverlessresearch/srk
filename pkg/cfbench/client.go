@@ -13,7 +13,7 @@ type benchClient struct {
 }
 
 func (bc *benchClient) RunBench(prov *srk.Provider, args *srk.BenchArgs) error {
-	cert, err := srk.LoadCertificates()
+	cert, err := srk.LoadKeyPair()
 	//cert, err := tls.LoadX509KeyPair("certs/client.crt", "certs/client.key")
 	//if err != nil {
 	//	bc.log.Fatalf("client: loadkeys: %s", err)

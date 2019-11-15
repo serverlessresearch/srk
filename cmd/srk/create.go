@@ -1,6 +1,6 @@
 // Handles the "srk function create" command
 
-package cmd
+package srk
 
 import (
 	"path"

@@ -1,5 +1,5 @@
 // Package creates a function archive that can be installed to a service.
-package cmd
+package srk
 
 import (
 	"os"

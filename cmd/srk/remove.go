@@ -1,5 +1,5 @@
 // The 'srk function remove' command. This uninstalls a function from the service.
-package cmd
+package srk
 
 import (
 	"github.com/pkg/errors"

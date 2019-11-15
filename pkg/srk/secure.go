@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"io/ioutil"
 	"log"
 	"math/big"
 	"net"
@@ -15,8 +16,8 @@ import (
 	"time"
 )
 
-const certificatePath = "config/srk.crt"
-const keyPath = "config/srk.key"
+const certificatePath = "configs/srk.cert"
+const keyPath = "configs/srk.key"
 
 func requireCertificates() error {
 	_, errCertifiate := os.Stat(certificatePath)
@@ -93,8 +94,15 @@ func createCertificates() error {
 	return nil
 }
 
+func CreateServerKeyPair(hosts []string) ([]byte, []byte, error) {
+	cert, priv, err := LoadCertificatePair()
+	if err != nil {
+		return nil, nil, err
+	}
+	return createServerKeyPair(cert, priv, hosts)
+}
 
-func createServerKeyPair(parent *x509.Certificate, hosts []string) ([]byte, []byte, error) {
+func createServerKeyPair(parent *x509.Certificate, signingPriv *rsa.PrivateKey, hosts []string) ([]byte, []byte, error) {
 	var priv *rsa.PrivateKey
 	var err error
 
@@ -117,7 +125,7 @@ func createServerKeyPair(parent *x509.Certificate, hosts []string) ([]byte, []by
 		}
 	}
 
-	certBytes, err := x509.CreateCertificate(rand.Reader, &template, parent, &priv.PublicKey, priv)
+	certBytes, err := x509.CreateCertificate(rand.Reader, &template, parent, &priv.PublicKey, signingPriv)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -136,7 +144,7 @@ func createServerKeyPair(parent *x509.Certificate, hosts []string) ([]byte, []by
 	return cert.Bytes(), key.Bytes(), nil
 }
 
-func LoadCertificates() (*tls.Certificate, error) {
+func LoadKeyPair() (*tls.Certificate, error) {
 	err := requireCertificates()
 	if err != nil {
 		return nil, err
@@ -146,4 +154,32 @@ func LoadCertificates() (*tls.Certificate, error) {
 		return nil, err
 	}
 	return &cert, err
+}
+
+func LoadCertificatePair() (*x509.Certificate, *rsa.PrivateKey, error) {
+	err := requireCertificates()
+	if err != nil {
+		return nil, nil, err
+	}
+	certPEMBlock, err := ioutil.ReadFile(certificatePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	p, _ := pem.Decode(certPEMBlock)
+	cert, err := x509.ParseCertificate(p.Bytes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	keyPEMBlock, err := ioutil.ReadFile(keyPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	p, _ = pem.Decode(keyPEMBlock)
+	priv, err := x509.ParsePKCS8PrivateKey(p.Bytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cert, priv.(*rsa.PrivateKey), nil
+
 }

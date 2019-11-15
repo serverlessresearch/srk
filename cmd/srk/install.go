@@ -1,6 +1,6 @@
 //Implements the 'srk function install' subcommand. Install takes a
 //pre-packaged function and actually installs it to the function service.
-package cmd
+package srk
 
 import (
 	"github.com/pkg/errors"

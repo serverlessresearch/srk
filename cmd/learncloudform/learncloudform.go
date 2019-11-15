@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -8,21 +9,45 @@ import (
 	cft "github.com/awslabs/goformation/v3/cloudformation"
 	"github.com/awslabs/goformation/v3/cloudformation/ec2"
 	"github.com/awslabs/goformation/v3/cloudformation/tags"
+	"github.com/serverlessresearch/srk/pkg/srk"
 	"log"
 	"os"
 )
 
 const setupScript = `#!/bin/bash
 
+sed -i 's/^#UseDNS yes$/UseDNS no/' /etc/ssh/sshd_config
+/bin/systemctl restart sshd.service
+
 yum update -y
 yum install -y git
-wget -O - https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz | tar xz -C /usr/local
+
+mkdir /home/ec2-user/config
+echo -n '%s' > /home/ec2-user/config/server.crt
+echo -n '%s' > /home/ec2-user/config/server.key
+
+chown -R ec2-user.ec2-user /home/ec2-user
+
+wget --quiet -O - https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz | tar xz -C /usr/local
 ln -s /usr/local/go/bin/go /usr/local/bin/go
-go get github.com/serverlessresearch/srk/
-cd 
+#export GOPATH=/home/ec2-user/go
+#mkdir $GOPATH
+
+sudo -u ec2-user bash -c '/usr/local/bin/go get -v -d github.com/serverlessresearch/srk/;\
+    cd /home/ec2-user/go/src/github.com/serverlessresearch/srk/;\
+    git checkout benchmark;\
+    /usr/local/bin/go install ./...'
 `
 
 func buildTemplate() ([]byte, error) {
+	cert, key, err := srk.CreateServerKeyPair([]string{"127.0.0.1"})
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("have certificate %s\n", string(cert))
+	fmt.Printf("have key %s\n", string(key))
+
+
 	template := cft.NewTemplate()
 	server := ec2.Instance{
 		//AvailabilityZone:    "",
@@ -41,7 +66,7 @@ func buildTemplate() ([]byte, error) {
 		KeyName:                           "serverless",
 		SecurityGroupIds:                  []string{"sg-011bc68753d133d2b"},
 		Tags:                              []tags.Tag{tags.Tag{Key: "Name", Value: "controlserver"}},
-		UserData:                          "",
+		UserData:                          base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(setupScript, cert, key))),
 		Volumes:                           nil,
 	}
 	template.Resources["myserver"] = &server
@@ -64,7 +89,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	stackName := "mystack2"
+	stackName := "mystack8"
 	svc := cloudformation.New(sess)
 
 	//cloudformation.DescribeStacksInput{}

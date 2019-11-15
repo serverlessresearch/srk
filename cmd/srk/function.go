@@ -1,7 +1,7 @@
 // Handles the "srk function" command. This command exists solely to contain
 // FaaS-specific subcommands (e.g. create, invoke, etc..)
 
-package cmd
+package srk
 
 import (
 	"github.com/spf13/cobra"
