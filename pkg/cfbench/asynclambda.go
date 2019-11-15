@@ -21,11 +21,11 @@ func NewLambdaAsyncInvoker() *LambdaAsyncInvoker {
 	return &LambdaAsyncInvoker{sess, client}
 }
 
-func (i *LambdaAsyncInvoker) Invoke(uuid string, experimentId string, trackingUrl string, functionName string, functionArgs map[string]interface{}) error {
+func (i *LambdaAsyncInvoker) Invoke(invocationId string, experimentId string, trackingUrl string, functionName string, functionArgs map[string]interface{}) error {
 	args := map[string]interface{}{
-		"uuid": uuid,
-		"experimentId": experimentId,
-		"tracking_url": trackingUrl,
+		"InvocationId": invocationId,
+		"ExperimentId": experimentId,
+		"TrackingUrl":  trackingUrl,
 	}
 	for k, v := range functionArgs {
 		if _, exists := args[k]; !exists {

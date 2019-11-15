@@ -55,7 +55,7 @@ func NewServer(launch <-chan cfbench.LaunchMessage, complete chan<- cfbench.Comp
 				return
 			}
 		Actions:
-			switch data["action"] {
+			switch data["Action"] {
 			case "begin":
 				log.Printf("begin action\n")
 				startTime := time.Now()
@@ -90,8 +90,15 @@ func NewServer(launch <-chan cfbench.LaunchMessage, complete chan<- cfbench.Comp
 					cmdJson = cmdJson[lenWritten:]
 				}
 			case "end":
+				var referenceIdInterface interface{}
 				var referenceId string
-				referenceId = data["Reference"].(string)
+				var ok bool
+				if referenceIdInterface, ok = data["InvocationId"]; !ok {
+					panic("xxx")
+				}
+				if referenceId, ok = referenceIdInterface.(string); !ok {
+					panic("xxx")
+				}
 				log.Printf("begin action: %s\n", referenceId)
 				complete <- cfbench.CompletionMessage{referenceId, true}
 				_, err = fmt.Fprintf(w, "Thanks for the event.")
@@ -134,7 +141,7 @@ func main() {
 	go func() {
 		for {
 			lm := <-launchChannel
-			err := invoker.Invoke(lm.ReferenceId, "exp", "172.31.23.31:6001", "sleepworkload", nil)
+			err := invoker.Invoke(lm.ReferenceId, "exp", "http://172.31.23.31:6001/", "sleepworkload", nil)
 			if err != nil {
 				completionChannel <- cfbench.CompletionMessage{lm.ReferenceId, false}
 			}
