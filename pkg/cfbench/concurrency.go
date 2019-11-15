@@ -75,6 +75,7 @@ func (cc *ConcurrencyControl) Run() {
 		}
 		idStr := id.String()
 		running[idStr] = spanId
+		log.Printf("launching with uuid %s\n", idStr)
 		cc.launchChannel <- LaunchMessage{maxDuration, idStr}
 	}
 

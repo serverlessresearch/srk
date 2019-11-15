@@ -57,9 +57,10 @@ func NewServer(launch <-chan cfbench.LaunchMessage, complete chan<- cfbench.Comp
 		Actions:
 			switch data["Action"] {
 			case "begin":
-				log.Printf("begin action on ExecutionId: %s\n", data["ExecutionId"])
 				startTime := time.Now()
+				log.Printf("begin action on ExecutionId: %s - WAITING\n", data["ExecutionId"])
 				lm := <-launch
+				log.Printf("begin action on ExecutionId: %s - RECEIVED LAUNCH COMMAND\n", data["ExecutionId"])
 				waitTime := time.Now().Sub(startTime)
 				runDuration := lm.Duration
 				if timeoutProvided, ok := data["Timeout"]; ok {
