@@ -1,10 +1,21 @@
 # This is a bit of a hack for openlambda
 import subprocess as sp
 import sys
+import ctypes
 
 def f(event):
-    p = sp.run('ls /dev/', stdout=sp.PIPE, universal_newlines=True, shell=True)
-    if p.returncode != 0:
-        return "Failed execution"
+    N = ctypes.c_int(event['test-size'])
+
+    cudaLib = ctypes.cdll.LoadLibrary("./handler/vadd.so")
+
+    # C++ appeared to mangle the name of the function. I found it by running
+    # "nm -D vadd.so" which lists the contents of a shared library.
+    res = cudaLib._Z8cudaTesti(N)
+
+    if res:
+        return "Success\n"
     else:
-        return p.stdout
+        return "Failure\n"
+
+if __name__ == "__main__":
+    print(f(None))
