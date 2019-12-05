@@ -50,8 +50,7 @@ func (self *olConfig) Install(rawDir string) error {
 	tarPath := filepath.Clean(rawDir) + ".tar.gz"
 
 	installPath := filepath.Join(self.dir, "registry", filepath.Base(tarPath))
-	//OL is managed by root so we have to use sudo commands for everything
-	cmd := exec.Command("sudo", "sh", "-c", "cp "+tarPath+" "+installPath)
+	cmd := exec.Command("/bin/cp", tarPath, installPath)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return errors.Wrap(err, string(out))
 	}
@@ -63,10 +62,8 @@ func (self *olConfig) Remove(fName string) error {
 	tarPath := filepath.Clean(fName) + ".tar.gz"
 
 	installPath := filepath.Join(self.dir, "registry", filepath.Base(tarPath))
-	//OL is managed by root so we have to use sudo commands for everything
-	cmd := exec.Command("sudo", "sh", "-c", "rm -r "+installPath)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return errors.Wrap(err, string(out))
+	if err := os.Remove(installPath); err != nil {
+		return err
 	}
 	self.log.Info("Open Lambda function removed")
 	return nil
@@ -100,8 +97,7 @@ func (self *olConfig) Invoke(fName string, args string) (resp *bytes.Buffer, rer
 // of worker PIDs and stuff so we don't have to.
 func (self *olConfig) launchOlWorker() error {
 	self.sessionStarted = true
-	cmd := exec.Command("sudo", "sh", "-c",
-		self.cmd+" worker -d --path="+self.dir)
+	cmd := exec.Command(self.cmd, "worker", "-d", "--path="+self.dir)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return errors.Wrap(err, string(out))
 	}
@@ -110,8 +106,7 @@ func (self *olConfig) launchOlWorker() error {
 
 // Clean up the open lambda worker launched by launchOlWorker()
 func (self *olConfig) terminateOlWorker() error {
-	cmd := exec.Command("sudo", "sh", "-c",
-		self.cmd+" kill --path="+self.dir)
+	cmd := exec.Command(self.cmd, "kill", "--path="+self.dir)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return errors.Wrap(err, "Failed to terminate the open lambda worker:\n"+string(out))
 	}
