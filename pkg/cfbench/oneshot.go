@@ -3,6 +3,8 @@
 package cfbench
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/serverlessresearch/srk/pkg/srk"
 	"github.com/sirupsen/logrus"
@@ -19,11 +21,14 @@ func NewOneShot(logger srk.Logger) (srk.Benchmark, error) {
 
 func (self *oneShotBench) RunBench(prov *srk.Provider, args *srk.BenchArgs) error {
 	self.log.Info("Invoking: " + args.FName + "(" + args.FArgs + ")")
+	start := time.Now()
 	resp, err := prov.Faas.Invoke(args.FName, args.FArgs)
 	if err != nil {
 		return errors.Wrap(err, "Failed to invoke function "+args.FName+"("+args.FArgs+")")
 	}
 
+	time := time.Since(start)
+	self.log.Infof("Function Complete. Took %v\n", time)
 	self.log.Infof("Function Response:\n%v\n", resp)
 	return nil
 }

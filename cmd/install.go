@@ -15,12 +15,12 @@ var installCmd = &cobra.Command{
 	Short: "Install a pre-packaged function to the configured FaaS service",
 	Long:  `Install a function to the FaaS service. It is assumed that you have already packaged this function (using the 'package' command).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		rawDir := getRawPath(installName)
+		rawDir := srkManager.GetRawPath(installName)
 
-		if err := srkConfig.provider.Faas.Install(rawDir); err != nil {
+		if err := srkManager.Provider.Faas.Install(rawDir); err != nil {
 			return errors.Wrap(err, "Installation failed")
 		}
-		srkConfig.logger.Info("Successfully installed function")
+		srkManager.Logger.Info("Successfully installed function")
 		return nil
 	},
 }

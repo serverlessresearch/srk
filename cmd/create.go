@@ -30,28 +30,27 @@ function package" and "srk function install".`,
 		} else {
 			funcName = createCmdConfig.name
 		}
-		srkConfig.logger.Info("Function name: " + funcName)
+		srkManager.Logger.Info("Function name: " + funcName)
 
 		includes := strings.Split(createCmdConfig.include, ",")
-		rawDir := getRawPath(funcName)
+		rawDir := srkManager.GetRawPath(funcName)
 
-		if err := createRaw(createCmdConfig.source, funcName, includes, rawDir); err != nil {
+		if err := srkManager.CreateRaw(createCmdConfig.source, funcName, includes); err != nil {
 			return errors.Wrap(err, "Create command failed")
 		}
-		srkConfig.logger.Info("Created raw function: " + rawDir)
+		srkManager.Logger.Info("Created raw function: " + rawDir)
 
-		// pkgPath, err := createCmdConfig.service.Package(rawDir)
-		pkgPath, err := srkConfig.provider.Faas.Package(rawDir)
+		pkgPath, err := srkManager.Provider.Faas.Package(rawDir)
 		if err != nil {
 			return errors.Wrap(err, "Packaging failed")
 		}
-		srkConfig.logger.Info("Created FaaS Package: " + pkgPath)
+		srkManager.Logger.Info("Created FaaS Package: " + pkgPath)
 
 		// if err := createCmdConfig.service.Install(rawDir); err != nil {
-		if err := srkConfig.provider.Faas.Install(rawDir); err != nil {
+		if err := srkManager.Provider.Faas.Install(rawDir); err != nil {
 			return errors.Wrap(err, "Installation failed")
 		}
-		srkConfig.logger.Info("Successfully installed function")
+		srkManager.Logger.Info("Successfully installed function")
 		return nil
 	},
 }
