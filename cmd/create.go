@@ -46,7 +46,6 @@ function package" and "srk function install".`,
 		}
 		srkManager.Logger.Info("Created FaaS Package: " + pkgPath)
 
-		// if err := createCmdConfig.service.Install(rawDir); err != nil {
 		if err := srkManager.Provider.Faas.Install(rawDir); err != nil {
 			return errors.Wrap(err, "Installation failed")
 		}
