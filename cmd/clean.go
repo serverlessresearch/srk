@@ -8,7 +8,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var cleanName string
@@ -21,9 +20,9 @@ var cleanCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var cleanGlob string
 		if cleanName != "" {
-			cleanGlob = getRawPath(cleanName) + "*"
+			cleanGlob = srkManager.GetRawPath(cleanName) + "*"
 		} else {
-			cleanGlob = filepath.Join(viper.GetString("buildDir"), "functions", "*")
+			cleanGlob = filepath.Join(srkManager.Cfg.GetString("buildDir"), "functions", "*")
 		}
 
 		matches, err := filepath.Glob(cleanGlob)
@@ -37,7 +36,7 @@ var cleanCmd = &cobra.Command{
 			}
 		}
 
-		srkConfig.logger.Info("Successfully cleaned function")
+		srkManager.Logger.Info("Successfully cleaned function")
 		return nil
 	},
 }
