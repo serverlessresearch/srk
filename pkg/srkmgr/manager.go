@@ -77,7 +77,7 @@ func (self *SrkManager) CreateRaw(source string, funcName string, includes []str
 	rawDir := self.GetRawPath(funcName)
 
 	//Shared global function build directory
-	fBuildDir := filepath.Join(viper.GetString("buildDir"), "functions")
+	fBuildDir := filepath.Join(self.Cfg.GetString("buildDir"), "functions")
 	err = os.MkdirAll(fBuildDir, 0775)
 	if err != nil {
 		return errors.Wrap(err, "Failed to create build directory at "+fBuildDir)
