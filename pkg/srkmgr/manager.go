@@ -90,7 +90,7 @@ func (self *SrkManager) CreateRaw(source string, funcName string, includes []str
 
 	cmd := exec.Command("cp", "-r", source, rawDir)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return errors.Wrapf(err, "Adding source returned error\n%v", out)
+		return errors.Wrapf(err, "Adding source returned error\n%v", string(out))
 	}
 
 	// Copy includes into the raw directory
