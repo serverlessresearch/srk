@@ -101,6 +101,12 @@ func (self *olConfig) launchOlWorker() error {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return errors.Wrap(err, string(out))
 	}
+
+	//Under heavy load (e.g. many goroutines calling Invoke(), we can run out
+	//of host connections. This allows us to support many more concurrent
+	//connections.
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 1024
+
 	return nil
 }
 
