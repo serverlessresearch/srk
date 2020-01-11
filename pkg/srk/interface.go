@@ -21,6 +21,7 @@ type Provider struct {
 // All new function services should provide an object that meets this interface, with a constructor like:
 // func NewConfig(logger Logger, config *viper.Viper) (FunctionService, error)
 type FunctionService interface {
+
 	// Package up everything needed to install the function but don't actually
 	// install it to the service. rawDir may be assumed to be a unique path for
 	// this function. The package location should be determinsitically derived
@@ -48,6 +49,11 @@ type FunctionService interface {
 	// Failure to destroy may leave the system in an inconsistent state that
 	// requires manual intervention.
 	Destroy()
+
+	// Report any collected statistics for this service. The collected
+	// statistics are dependent on the underlying implementation (you should
+	// always check if an expected category is available before reading).
+	ReportStats() (map[string]float64, error)
 }
 
 type BenchArgs struct {
