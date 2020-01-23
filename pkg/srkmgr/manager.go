@@ -13,12 +13,18 @@ import (
 	"github.com/spf13/viper"
 )
 
+// The SrkManager class represents a single session with SRK. It is not
+// recommended to initialize multiple SrkManager's per host since NewManager()
+// may have side-effects depending on your configuration.
 type SrkManager struct {
 	Provider *srk.Provider
 	Logger   srk.Logger
 	Cfg      *viper.Viper
 }
 
+// Creates a new SrkManager and initializes the session. You must call
+// mgr.Destroy() on the object returned by this function to avoid leaving stale
+// state.
 func NewManager(userCfg map[string]interface{}) (*SrkManager, error) {
 	var err error
 	mgr := &SrkManager{}
@@ -55,11 +61,17 @@ func NewManager(userCfg map[string]interface{}) (*SrkManager, error) {
 	return mgr, nil
 }
 
+// Destroy cleans up any internal and external state held by the SrkManager.
+// This is particularly important because some SRK configurations may have
+// external side-effects that must be explicitly cleaned and may be difficult
+// to manually clean.
 func (self *SrkManager) Destroy() {
 	self.Provider.Faas.Destroy()
 }
 
-// Returns a path to the raw directory for funcName (whether it exists or not)
+// GetRawPath returns a path to the raw directory for funcName (whether it
+// exists or not) The raw directory is a backend-independent location for
+// staging files before interacting with backend systems.
 func (self *SrkManager) GetRawPath(funcName string) string {
 	return filepath.Join(
 		self.Cfg.GetString("buildDir"),
@@ -67,12 +79,12 @@ func (self *SrkManager) GetRawPath(funcName string) string {
 		funcName)
 }
 
-// Place all provider-independent objects in a raw directory that will be
-// packaged by the FaaS service. Will replace any existing rawDir.
-// source: is the path to the user-provided source directory
-// funcName: Unique name to give this function
-// includes: List of standard SRK libraries to include (just the names of the packages, not paths)
-// rawDir: Path where the rawDir should be made
+// CreateRaw places all provider-independent objects in a raw directory that
+// will be packaged by the FaaS service. Will replace any existing rawDir.
+//   source: is the path to the user-provided source directory
+//   funcName: Unique name to give this function
+//   includes: List of standard SRK libraries to include (just the names of the
+//       packages, not paths)
 func (self *SrkManager) CreateRaw(source string, funcName string, includes []string) (err error) {
 	rawDir := self.GetRawPath(funcName)
 
