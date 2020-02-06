@@ -135,7 +135,7 @@ func (self *olConfig) launchOlWorker() error {
 	//Under heavy load (e.g. many goroutines calling Invoke(), we can run out
 	//of host connections. This allows us to support many more concurrent
 	//connections.
-	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 1024
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 0
 
 	if self.isLocal {
 		cmd := exec.Command(self.cmd, "worker", "-d", "--path="+self.dir)
