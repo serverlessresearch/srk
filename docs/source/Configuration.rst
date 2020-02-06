@@ -32,11 +32,15 @@ modifications.
    <https://github.com/NathanTP/open-lambda>`_ to get a few additional features.
    Make sure you use this fork instead of the upstream version (for now).
 
+.. _config-olcmd:
+
 olcmd
 """""""""""""""""""
 SRK's OL wrapper needs to know which binary to invoke when interacting with a
 local instance. Download and compile OL locally and then set this option to the
 path to the ``ol`` binary.
+
+.. _config-oldir:
 
 oldir
 """"""""""""""""""""

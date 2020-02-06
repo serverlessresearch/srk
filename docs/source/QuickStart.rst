@@ -1,4 +1,4 @@
-.. _tutorial_quickstart
+.. _tutorial_quickstart:
 
 ======================
 Quick Start Tutorial
@@ -65,19 +65,20 @@ OpenLambda and AWS Lambda support.
 
 OpenLambda
 =================
-OpenLambda is an open-source function-as-a-service provider based Docker. We
-maintain a fork of this project to provide additional features. Go ahead and
-clone this repo anywhere in your filesystem, we'll use our home directory in
-these instructions:
+OpenLambda is an open-source function-as-a-service provider based linux
+containers. We maintain a fork of this project to provide additional features.
+Go ahead and clone this repo anywhere in your filesystem, we'll use our home
+directory in these instructions:
 
 ::
 
    $ cd ~
    $ git clone git@github.com:NathanTP/open-lambda.git
 
-Next, follow the instructions in open-lambda's README to compile and install
-the system. You will need to have Docker and Golang installed before starting
-this step.
+Next, follow the `instructions in open-lambda's README
+<https://github.com/NathanTP/open-lambda/blob/master/README.md>`_ to compile and
+install the system. You will need to have Docker and Golang installed before
+starting this step.
 
 With OpenLambda built, we can now configure SRK to use it. Open up
 ``configs/srk.yaml`` and modify the ``service.faas.openLambda`` section to look
@@ -89,6 +90,11 @@ as follows:
       openLambda:
          olcmd: "~/open-lambda/ol"
          oldir: "~/open-lambda/default-ol"
+
+``olcmd`` should point to the OpenLambda binary you produced when building the
+project. ``oldir`` should point to an OpenLambda workspace (created by calling
+``./ol new``). See the :ref:`config-olcmd` and :ref:`config-oldir` sections for
+more details.
 
 AWS Lambda
 =============
@@ -104,7 +110,15 @@ For example:
    faas:
       awsLambda:
          role: "arn:aws:iam::123459789012:role/service-role/my-service-role-ae04d032"
-         vpc: "vpc-123456789abcdef,sg-123456789abcdef"
+         vpc: null
+
+The role is an AWS-specific set of permissions for your function. You can learn
+more about creating roles `here
+<https://docs.aws.amazon.com/lambda/latest/dg/lambda-intro-execution-role.html>`_.
+The vpc setting controls networking for your function, unless you have a
+specific use-case, you can leave this as null (for more information, see the `AWS VPC
+documentation
+<https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc.html>`_).
 
 Setting the current provider
 =================================
