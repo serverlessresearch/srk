@@ -43,7 +43,7 @@ func NewConfig(logger srk.Logger, config *viper.Viper) (srk.FunctionService, err
 	return awsCfg, nil
 }
 
-func (self *awsLambdaConfig) ReportStats() (map[string]float64, error) {
+func (self *awsLambdaConfig) ReportStats(reset bool) (map[string]float64, error) {
 	stats := make(map[string]float64)
 
 	return stats, nil

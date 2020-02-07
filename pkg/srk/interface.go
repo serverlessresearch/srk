@@ -53,7 +53,9 @@ type FunctionService interface {
 	// Report any collected statistics for this service. The collected
 	// statistics are dependent on the underlying implementation (you should
 	// always check if an expected category is available before reading).
-	ReportStats() (map[string]float64, error)
+	// reset=True will reset statistics, False will report stats without
+	// changing them.
+	ReportStats(reset bool) (map[string]float64, error)
 }
 
 type BenchArgs struct {
