@@ -33,20 +33,3 @@ service :
       # e.g.: "vpc-123456789abcdef,sg-123456789abcdef"
       vpc-config : null
     global:
-      limitMB: 128
-      limitTime: 10
-        
-  # Key-Value object stores
-  objStore :
-    # XXX These are not implemented yet
-    anna :
-    s3 :
-    filesystem :
-
-  # These services do not have SRK-abstracted interfaces, but you may want us
-  # to launch them on the system anyway.
-  extra :
-    # XXX This is just a placeholder until we need it. I imagine things like
-    # RDBMSs or other BaaS stuff here.
-    mysql :
-
