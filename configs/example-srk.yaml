@@ -25,6 +25,8 @@ service :
       # Path to the initialized open-lambda working directory
       # e.g. ~/open-lambda/default-ol/
       oldir : null
+      # List of servers to send requests to
+      olservers : [ "http://localhost:5000" ]
     awsLambda :
       # Your arn role.
       # e.g. `arn:aws:iam::123459789012:role/service-role/my-service-role-ae04d032`
