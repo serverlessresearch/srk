@@ -27,6 +27,16 @@ func (self *oneShotBench) RunBench(prov *srk.Provider, args *srk.BenchArgs) erro
 		return errors.Wrap(err, "Failed to invoke function "+args.FName+"("+args.FArgs+")")
 	}
 
+	stats, err := prov.Faas.ReportStats(true)
+	if err != nil {
+		return errors.Wrap(err, "Failed to gather statistics about function "+args.FName+"("+args.FArgs+")")
+	}
+
+	self.log.Infof("Invocation statistics: \n")
+	for k, v := range stats {
+		self.log.Infof("%s:\t%v\n", k, v)
+	}
+
 	time := time.Since(start)
 	self.log.Infof("Function Complete. Took %v\n", time)
 	self.log.Infof("Function Response:\n%v\n", resp)
