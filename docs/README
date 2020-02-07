@@ -1,0 +1,23 @@
+# SRK Documentation
+The SRK documentation is built using the [sphinx documentation
+system](https://www.sphinx-doc.org/en/master/). Sphinx uses the restructured
+text mardown format for all documentation with a number of additional features.  
+
+The main output of sphinx is an HTML representation of your documentation,
+although it can be configured to output to other formats (like latex or pdf).
+The html output is especially useful when combined with the readthedocs service
+which hosts documentation for open source projects.
+
+## Quickstart
+First, install the python dependencies. E.g.:
+  pip install -r python-requirements.txt
+
+Next, you can build documentation and launch a local web server to see it locally:
+  make html
+  make server
+
+If you are working on a remote machine, you might want to ssh with ports
+forwarded to see the output locally:
+  ssh -L 8000:localhost:8000 REMOTEHOST
+
+You can now see the docs by navigating to http://localhost:8000/ in your browser.

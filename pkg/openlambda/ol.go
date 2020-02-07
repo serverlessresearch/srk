@@ -77,9 +77,8 @@ func (self *olConfig) Install(rawDir string) error {
 	tarPath := filepath.Clean(rawDir) + ".tar.gz"
 
 	installPath := filepath.Join(self.dir, "registry", filepath.Base(tarPath))
-	cmd := exec.Command("/bin/cp", tarPath, installPath)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return errors.Wrap(err, string(out))
+	if err := srk.CopyFile(tarPath, installPath); err != nil {
+		return err
 	}
 	self.log.Info("Open Lambda function installed to: " + installPath)
 	return nil
