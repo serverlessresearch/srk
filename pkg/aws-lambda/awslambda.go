@@ -43,6 +43,17 @@ func NewConfig(logger srk.Logger, config *viper.Viper) (srk.FunctionService, err
 	return awsCfg, nil
 }
 
+func (self *awsLambdaConfig) ReportStats() (map[string]float64, error) {
+	stats := make(map[string]float64)
+
+	return stats, nil
+}
+
+func (self *awsLambdaConfig) ResetStats() error {
+	// Nothing to reset yet
+	return nil
+}
+
 func (self *awsLambdaConfig) Package(rawDir string) (zipDir string, rerr error) {
 	zipPath := filepath.Clean(rawDir) + ".zip"
 	rerr = zipRaw(rawDir, zipPath)

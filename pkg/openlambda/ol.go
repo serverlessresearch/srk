@@ -5,18 +5,26 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/serverlessresearch/srk/pkg/srk"
 	"github.com/spf13/viper"
 )
+
+type olStats struct {
+	tInvoke float64
+	nInvoke int
+}
 
 type olConfig struct {
 	// Command to run base openlambda manager ('ol')
@@ -32,6 +40,7 @@ type olConfig struct {
 	// Keeps track of if we've started an ol worker or not
 	sessionStarted bool
 	log            srk.Logger
+	stats          olStats
 }
 
 func NewConfig(logger srk.Logger, config *viper.Viper) (srk.FunctionService, error) {
@@ -53,8 +62,56 @@ func NewConfig(logger srk.Logger, config *viper.Viper) (srk.FunctionService, err
 		isLocal:        isLocal,
 		sessionStarted: false,
 		log:            logger,
+		stats:          olStats{0, 0},
 	}
 	return olCfg, nil
+}
+
+func (self *olConfig) ReportStats() (map[string]float64, error) {
+
+	if !self.sessionStarted {
+		return nil, errors.New("No active OpenLambda sessions")
+	}
+
+	olResp, err := http.Post(self.urls[0]+"/stats", "application/json", strings.NewReader(""))
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to POST stats request to ol worker")
+	}
+
+	respBuf, err := ioutil.ReadAll(olResp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to read stats response")
+	}
+
+	stats := make(map[string]float64)
+
+	var rawDecoded interface{}
+	if err = json.Unmarshal(respBuf, &rawDecoded); err != nil {
+		return nil, errors.Wrap(err, "Failed to interpret OL statistics")
+	}
+
+	decoded := rawDecoded.(map[string]interface{})
+	for k, v := range decoded {
+		if floatv, ok := v.(float64); ok {
+			stats[k] = floatv
+		} else {
+			self.log.Warnf("Ignoring non-numeric statistics result from openLambda: %v=%v", k, v)
+		}
+	}
+	stats["srkInvoke"] = self.stats.tInvoke / float64(self.stats.nInvoke)
+
+	return stats, nil
+}
+
+func (self *olConfig) ResetStats() error {
+	//Reset the statistics
+	_, err := http.Post(self.urls[0]+"/stats", "application/json", strings.NewReader("reset"))
+	if err != nil {
+		return err
+	}
+	self.stats.tInvoke = 0
+	self.stats.nInvoke = 0
+	return nil
 }
 
 func (self *olConfig) Package(rawDir string) (string, error) {
@@ -115,12 +172,15 @@ func (self *olConfig) Invoke(fName string, args string) (resp *bytes.Buffer, rer
 	// Round-robin between servers
 	urlx := atomic.AddUint64(&self.lastUrl, 1) % uint64(len(self.urls))
 	url := self.urls[urlx]
+	start := time.Now()
 	olResp, err := http.Post(url+"/run/"+fName, "application/json", strings.NewReader(args))
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to POST request to ol worker")
 	}
 	respBuf := new(bytes.Buffer)
 	respBuf.ReadFrom(olResp.Body)
+	self.stats.tInvoke += float64(time.Since(start).Microseconds())
+	self.stats.nInvoke++
 
 	return respBuf, nil
 }

@@ -3,3 +3,4 @@
 *.pdf
 log.txt
 build/
+*.swp
