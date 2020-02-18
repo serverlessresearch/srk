@@ -67,7 +67,7 @@ func NewConfig(logger srk.Logger, config *viper.Viper) (srk.FunctionService, err
 	return olCfg, nil
 }
 
-func (self *olConfig) ReportStats(reset bool) (map[string]float64, error) {
+func (self *olConfig) ReportStats() (map[string]float64, error) {
 
 	if !self.sessionStarted {
 		return nil, errors.New("No active OpenLambda sessions")
@@ -100,17 +100,18 @@ func (self *olConfig) ReportStats(reset bool) (map[string]float64, error) {
 	}
 	stats["srkInvoke"] = self.stats.tInvoke / float64(self.stats.nInvoke)
 
-	if reset {
-		//Reset the statistics
-		_, err = http.Post(self.urls[0]+"/stats", "application/json", strings.NewReader("reset"))
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to reset stats on ol worker")
-		}
-		self.stats.tInvoke = 0
-		self.stats.nInvoke = 0
-	}
-
 	return stats, nil
+}
+
+func (self *olConfig) ResetStats() error {
+	//Reset the statistics
+	_, err := http.Post(self.urls[0]+"/stats", "application/json", strings.NewReader("reset"))
+	if err != nil {
+		return err
+	}
+	self.stats.tInvoke = 0
+	self.stats.nInvoke = 0
+	return nil
 }
 
 func (self *olConfig) Package(rawDir string) (string, error) {

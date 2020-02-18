@@ -27,9 +27,13 @@ func (self *oneShotBench) RunBench(prov *srk.Provider, args *srk.BenchArgs) erro
 		return errors.Wrap(err, "Failed to invoke function "+args.FName+"("+args.FArgs+")")
 	}
 
-	stats, err := prov.Faas.ReportStats(true)
+	stats, err := prov.Faas.ReportStats()
 	if err != nil {
 		return errors.Wrap(err, "Failed to gather statistics about function "+args.FName+"("+args.FArgs+")")
+	}
+
+	if err = prov.Faas.ResetStats(); err != nil {
+		return errors.Wrap(err, "Failed to reset statistics for function "+args.FName+"("+args.FArgs+")")
 	}
 
 	self.log.Infof("Invocation statistics: \n")
