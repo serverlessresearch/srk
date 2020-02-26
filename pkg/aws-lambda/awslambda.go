@@ -5,7 +5,6 @@ package awslambda
 import (
 	"archive/zip"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -111,23 +110,18 @@ func (self *awsLambdaConfig) Invoke(fName string, args string) (resp *bytes.Buff
 		self.session = lambda.New(sess, &aws.Config{Region: aws.String(self.region)})
 	}
 
-	payload, err := json.Marshal(args)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to parse arguments")
-	}
-
 	awsResp, err := self.session.Invoke(&lambda.InvokeInput{
 		FunctionName: aws.String(fName),
-		Payload:      payload,
+		Payload:      []byte(args),
 		// This is a synchronous invocation, our API might need to change for async
 		InvocationType: aws.String("RequestResponse")})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to invoke function")
 	}
 	resp = bytes.NewBuffer(awsResp.Payload)
 
 	if awsResp.FunctionError != nil {
-		return resp, errors.New(*awsResp.FunctionError)
+		return resp, errors.Wrap(errors.New(awsResp.String()), "function returned error")
 	}
 	self.log.Info("Function invocation success:\n")
 	self.log.Infof("Executed Version: %v\n", awsResp.ExecutedVersion)
