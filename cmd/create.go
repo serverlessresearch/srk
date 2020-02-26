@@ -34,7 +34,7 @@ function package" and "srk function install".`,
 		srkManager.Logger.Info("Function name: " + funcName)
 
 		includes := strings.Split(createCmdConfig.include, ",")
-		files := strings.Split(packageCmdConfig.files, ",")
+		files := strings.Split(createCmdConfig.files, ",")
 		rawDir := srkManager.GetRawPath(funcName)
 
 		if err := srkManager.CreateRaw(createCmdConfig.source, funcName, includes, files); err != nil {

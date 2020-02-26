@@ -108,6 +108,9 @@ func (self *SrkManager) CreateRaw(source string, funcName string, includes, file
 
 	// Copy includes into the raw directory
 	for _, include := range includes {
+		if include == "" {
+			continue
+		}
 		includePath := filepath.Join(
 			self.Cfg.GetString("includeDir"),
 			"python",
@@ -123,6 +126,9 @@ func (self *SrkManager) CreateRaw(source string, funcName string, includes, file
 
 	// Copy files into the raw directory
 	for _, filePath := range files {
+		if filePath == "" {
+			continue
+		}
 		if _, err := os.Stat(filePath); err != nil {
 			return errors.Wrap(err, "Couldn't find file: "+filePath)
 		}

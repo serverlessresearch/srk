@@ -180,7 +180,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string) (rerr error) {
 			MemorySize:   aws.Int64(128),
 			Publish:      aws.Bool(true),
 			Role:         aws.String(self.role),
-			Runtime:      aws.String("python3.7"),
+			Runtime:      aws.String("python3.8"),
 			Timeout:      aws.Int64(15),
 			VpcConfig:    &awsVpcConfig,
 		}
