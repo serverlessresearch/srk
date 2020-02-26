@@ -85,7 +85,8 @@ func (self *SrkManager) GetRawPath(funcName string) string {
 //   funcName: Unique name to give this function
 //   includes: List of standard SRK libraries to include (just the names of the
 //       packages, not paths)
-func (self *SrkManager) CreateRaw(source string, funcName string, includes []string) (err error) {
+//   files: List of additional files to copy into the raw directory.
+func (self *SrkManager) CreateRaw(source string, funcName string, includes, files []string) (err error) {
 	rawDir := self.GetRawPath(funcName)
 
 	//Shared global function build directory
@@ -117,6 +118,17 @@ func (self *SrkManager) CreateRaw(source string, funcName string, includes []str
 		cmd := exec.Command("cp", "-r", includePath, rawDir)
 		if err := cmd.Run(); err != nil {
 			return errors.Wrap(err, "Adding include returned error")
+		}
+	}
+
+	// Copy files into the raw directory
+	for _, filePath := range files {
+		if _, err := os.Stat(filePath); err != nil {
+			return errors.Wrap(err, "Couldn't find file: "+filePath)
+		}
+		cmd := exec.Command("cp", "-r", filePath, rawDir)
+		if err := cmd.Run(); err != nil {
+			return errors.Wrap(err, "Adding file returned error")
 		}
 	}
 

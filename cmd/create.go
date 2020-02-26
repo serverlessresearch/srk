@@ -13,6 +13,7 @@ import (
 var createCmdConfig struct {
 	source  string
 	include string
+	files   string
 	name    string
 }
 
@@ -33,9 +34,10 @@ function package" and "srk function install".`,
 		srkManager.Logger.Info("Function name: " + funcName)
 
 		includes := strings.Split(createCmdConfig.include, ",")
+		files := strings.Split(packageCmdConfig.files, ",")
 		rawDir := srkManager.GetRawPath(funcName)
 
-		if err := srkManager.CreateRaw(createCmdConfig.source, funcName, includes); err != nil {
+		if err := srkManager.CreateRaw(createCmdConfig.source, funcName, includes, files); err != nil {
 			return errors.Wrap(err, "Create command failed")
 		}
 		srkManager.Logger.Info("Created raw function: " + rawDir)
@@ -60,6 +62,7 @@ func init() {
 	// Define the command line arguments for this subcommand
 	createCmd.Flags().StringVarP(&createCmdConfig.source, "source", "s", "", "source directory or file")
 	createCmd.Flags().StringVarP(&createCmdConfig.include, "include", "i", "", "what to include, e.g., bench")
+	createCmd.Flags().StringVarP(&createCmdConfig.files, "files", "f", "", "additional files to include")
 	// The actual default is derived from the source option, so we set it
 	// something that will be clear in the help output until we have all the
 	// options parsed
