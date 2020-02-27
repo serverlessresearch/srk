@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/serverlessresearch/srk/pkg/srkmgr"
 	"github.com/spf13/cobra"
@@ -49,6 +50,23 @@ func Execute() {
 		}
 		os.Exit(1)
 	}
+}
+
+func parseKeyValue(s string) map[string]string {
+
+	if s == "" {
+		return nil
+	}
+
+	result := make(map[string]string)
+	for _, pair := range strings.Split(s, ",") {
+		keyValue := strings.Split(pair, "=")
+		if len(keyValue) == 2 {
+			result[keyValue[0]] = keyValue[1]
+		}
+	}
+
+	return result
 }
 
 func init() {

@@ -7,7 +7,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var installName string
+var (
+	installName string
+	installEnv  string
+)
 
 // installCmd represents the install command
 var installCmd = &cobra.Command{
@@ -17,7 +20,7 @@ var installCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		rawDir := srkManager.GetRawPath(installName)
 
-		if err := srkManager.Provider.Faas.Install(rawDir); err != nil {
+		if err := srkManager.Provider.Faas.Install(rawDir, parseKeyValue(installEnv)); err != nil {
 			return errors.Wrap(err, "Installation failed")
 		}
 		srkManager.Logger.Info("Successfully installed function")
@@ -29,4 +32,5 @@ func init() {
 	functionCmd.AddCommand(installCmd)
 
 	installCmd.Flags().StringVarP(&installName, "function-name", "n", "", "The function to install")
+	installCmd.Flags().StringVarP(&installEnv, "env", "e", "", "list of environment vars: var1=value1,var2=value2")
 }

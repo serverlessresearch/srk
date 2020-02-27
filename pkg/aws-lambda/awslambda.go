@@ -62,10 +62,9 @@ func (self *awsLambdaConfig) Package(rawDir string) (zipDir string, rerr error) 
 	return zipPath, nil
 }
 
-func (self *awsLambdaConfig) Install(rawDir string) (rerr error) {
+func (self *awsLambdaConfig) Install(rawDir string, env map[string]string) (rerr error) {
 	zipPath := filepath.Clean(rawDir) + ".zip"
-
-	return self.awsInstall(zipPath)
+	return self.awsInstall(zipPath, env)
 }
 
 func (self *awsLambdaConfig) Remove(fName string) error {
@@ -132,7 +131,7 @@ func (self *awsLambdaConfig) Invoke(fName string, args string) (resp *bytes.Buff
 	return resp, nil
 }
 
-func (self *awsLambdaConfig) awsInstall(zipPath string) (rerr error) {
+func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string) (rerr error) {
 	if self.session == nil {
 		sess := session.Must(session.NewSession())
 		self.session = lambda.New(sess, &aws.Config{Region: aws.String(self.region)})
@@ -145,6 +144,15 @@ func (self *awsLambdaConfig) awsInstall(zipPath string) (rerr error) {
 		return errors.Wrap(err, "Failed to read the zip file we just created")
 	}
 
+	var awsEnv *lambda.Environment
+	if env != nil {
+		vars := make(map[string]*string)
+		for key, value := range env {
+			vars[key] = aws.String(value)
+		}
+		awsEnv = &lambda.Environment{Variables: vars}
+	}
+
 	var result *lambda.FunctionConfiguration
 	exists, err := lambdaExists(self.session, funcName)
 	if err != nil {
@@ -152,9 +160,22 @@ func (self *awsLambdaConfig) awsInstall(zipPath string) (rerr error) {
 	}
 
 	if exists {
+		if awsEnv != nil {
+			request := &lambda.UpdateFunctionConfigurationInput{
+				FunctionName: aws.String(funcName),
+				Environment:  awsEnv,
+			}
+
+			_, err := self.session.UpdateFunctionConfiguration(request)
+			if err != nil {
+				return errors.Wrap(err, "Failure updating function configuration:")
+			}
+		}
+
 		req := &lambda.UpdateFunctionCodeInput{
 			FunctionName: aws.String(funcName),
-			ZipFile:      zipDat}
+			ZipFile:      zipDat,
+		}
 
 		self.log.Info("Updating Function: " + funcName)
 		result, err = self.session.UpdateFunctionCode(req)
@@ -170,13 +191,15 @@ func (self *awsLambdaConfig) awsInstall(zipPath string) (rerr error) {
 			Code:         &lambda.FunctionCode{ZipFile: zipDat},
 			Description:  aws.String("SRK Generated function " + funcName),
 			FunctionName: aws.String(funcName),
-			Handler:      aws.String("aws.f"),
-			MemorySize:   aws.Int64(128),
-			Publish:      aws.Bool(true),
-			Role:         aws.String(self.role),
-			Runtime:      aws.String("python3.8"),
-			Timeout:      aws.Int64(15),
-			VpcConfig:    &awsVpcConfig,
+			Handler:      aws.String("lambda_function.lambda_handler"),
+			MemorySize:   aws.Int64(3008),
+			// TODO do we want to publish?
+			// Publish:      aws.Bool(true),
+			Role:        aws.String(self.role),
+			Runtime:     aws.String("python3.8"),
+			Timeout:     aws.Int64(15),
+			Environment: awsEnv,
+			VpcConfig:   &awsVpcConfig,
 		}
 
 		self.log.Info("Creating Function: " + funcName)
@@ -208,8 +231,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string) (rerr error) {
 		}
 		return errors.New(errStr)
 	}
-	self.log.Info("Success:")
-	self.log.Info(result)
+	self.log.Info("Success:", result)
 
 	return nil
 }

@@ -15,6 +15,7 @@ var createCmdConfig struct {
 	include string
 	files   string
 	name    string
+	env     string
 }
 
 var createCmd = &cobra.Command{
@@ -48,7 +49,7 @@ function package" and "srk function install".`,
 		}
 		srkManager.Logger.Info("Created FaaS Package: " + pkgPath)
 
-		if err := srkManager.Provider.Faas.Install(rawDir); err != nil {
+		if err := srkManager.Provider.Faas.Install(rawDir, parseKeyValue(createCmdConfig.env)); err != nil {
 			return errors.Wrap(err, "Installation failed")
 		}
 		srkManager.Logger.Info("Successfully installed function")
@@ -63,6 +64,7 @@ func init() {
 	createCmd.Flags().StringVarP(&createCmdConfig.source, "source", "s", "", "source directory or file")
 	createCmd.Flags().StringVarP(&createCmdConfig.include, "include", "i", "", "what to include, e.g., bench")
 	createCmd.Flags().StringVarP(&createCmdConfig.files, "files", "f", "", "additional files to include")
+	createCmd.Flags().StringVarP(&createCmdConfig.env, "env", "e", "", "list of environment vars: var1=value1,var2=value2")
 	// The actual default is derived from the source option, so we set it
 	// something that will be clear in the help output until we have all the
 	// options parsed
