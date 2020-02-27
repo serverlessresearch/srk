@@ -16,6 +16,10 @@ import (
 // The SrkManager class represents a single session with SRK. It is not
 // recommended to initialize multiple SrkManager's per host since NewManager()
 // may have side-effects depending on your configuration.
+
+// The SrkManager class represents a single session with SRK. It is not
+// recommended to initialize multiple SrkManager's per host since NewManager()
+// may have side-effects depending on your configuration.
 type SrkManager struct {
 	Provider *srk.Provider
 	Logger   srk.Logger
@@ -79,6 +83,16 @@ func (self *SrkManager) GetRawPath(funcName string) string {
 		funcName)
 }
 
+// GetRawLayerPath returns a path to the raw directory for layerName (whether it
+// exists or not) The raw directory is a backend-independent location for
+// staging files before interacting with backend systems.
+func (self *SrkManager) GetRawLayerPath(layerName string) string {
+	return filepath.Join(
+		self.Cfg.GetString("buildDir"),
+		"layers",
+		layerName)
+}
+
 // CreateRaw places all provider-independent objects in a raw directory that
 // will be packaged by the FaaS service. Will replace any existing rawDir.
 //   source: is the path to the user-provided source directory
@@ -89,7 +103,7 @@ func (self *SrkManager) GetRawPath(funcName string) string {
 func (self *SrkManager) CreateRaw(source string, funcName string, includes, files []string) (err error) {
 	rawDir := self.GetRawPath(funcName)
 
-	//Shared global function build directory
+	// Shared global function build directory
 	fBuildDir := filepath.Join(self.Cfg.GetString("buildDir"), "functions")
 	err = os.MkdirAll(fBuildDir, 0775)
 	if err != nil {
@@ -139,6 +153,44 @@ func (self *SrkManager) CreateRaw(source string, funcName string, includes, file
 	}
 
 	return nil
+}
+
+func (self *SrkManager) CreateRawLayer(source, name string, files []string) (string, error) {
+
+	rawDir := self.GetRawLayerPath(name)
+
+	// Shared global layer build directory
+	buildDir := filepath.Join(self.Cfg.GetString("buildDir"), "layers")
+	err := os.MkdirAll(buildDir, 0775)
+	if err != nil {
+		return "", errors.Wrapf(err, "Failed to create build directory at %s", buildDir)
+	}
+
+	// Always cleanup old raw directories first
+	if err := os.RemoveAll(rawDir); err != nil {
+		return "", errors.Wrapf(err, "Failed to cleanup old build directory %s", rawDir)
+	}
+
+	cmd := exec.Command("cp", "-r", source, rawDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return "", errors.Wrapf(err, "Adding source returned error\n%v", out)
+	}
+
+	// Copy files into the raw directory
+	for _, filePath := range files {
+		if filePath == "" {
+			continue
+		}
+		if _, err := os.Stat(filePath); err != nil {
+			return "", errors.Wrapf(err, "Couldn't find file %s", filePath)
+		}
+		cmd := exec.Command("cp", "-r", filePath, rawDir)
+		if err := cmd.Run(); err != nil {
+			return "", errors.Wrap(err, "Adding file returned error")
+		}
+	}
+
+	return rawDir, nil
 }
 
 func (self *SrkManager) initConfig(cfgPath *string) error {

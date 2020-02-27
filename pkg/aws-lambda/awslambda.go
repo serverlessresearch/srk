@@ -53,6 +53,16 @@ func (self *awsLambdaConfig) ResetStats() error {
 	return nil
 }
 
+func (self *awsLambdaConfig) Session() *lambda.Lambda {
+
+	if self.session == nil {
+		sess := session.Must(session.NewSession())
+		self.session = lambda.New(sess, &aws.Config{Region: aws.String(self.region)})
+	}
+
+	return self.session
+}
+
 func (self *awsLambdaConfig) Package(rawDir string) (zipDir string, rerr error) {
 	zipPath := filepath.Clean(rawDir) + ".zip"
 	rerr = zipRaw(rawDir, zipPath)
@@ -68,35 +78,117 @@ func (self *awsLambdaConfig) Install(rawDir string, env map[string]string, layer
 }
 
 func (self *awsLambdaConfig) Remove(fName string) error {
-	if self.session == nil {
-		sess := session.Must(session.NewSession())
-		self.session = lambda.New(sess, &aws.Config{Region: aws.String(self.region)})
-	}
 
-	_, err := self.session.DeleteFunction(&lambda.DeleteFunctionInput{FunctionName: aws.String(fName)})
+	_, err := self.Session().DeleteFunction(&lambda.DeleteFunctionInput{FunctionName: aws.String(fName)})
 	if err != nil {
-		var errStr string
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case lambda.ErrCodeServiceException:
-				errStr = fmt.Sprintln(lambda.ErrCodeServiceException, aerr.Error())
-			case lambda.ErrCodeResourceNotFoundException:
-				errStr = fmt.Sprintln(lambda.ErrCodeResourceNotFoundException, aerr.Error())
-			case lambda.ErrCodeTooManyRequestsException:
-				errStr = fmt.Sprintln(lambda.ErrCodeTooManyRequestsException, aerr.Error())
-			case lambda.ErrCodeInvalidParameterValueException:
-				errStr = fmt.Sprintln(lambda.ErrCodeInvalidParameterValueException, aerr.Error())
-			case lambda.ErrCodeResourceConflictException:
-				errStr = fmt.Sprintln(lambda.ErrCodeResourceConflictException, aerr.Error())
-			default:
-				errStr = fmt.Sprintln(aerr.Error())
-			}
-		} else {
-			errStr = fmt.Sprintln(err.Error())
-		}
-		return errors.New(errStr)
+		return decodeAwsError(err)
 	}
 	return nil
+}
+
+// Install a layer to the desired FaaS service. It is assumed that
+// Package() has already been called on this rawDir. The name of rawDir is
+// also the name of the layer.
+// Returns: ARN of the installed layer
+func (self *awsLambdaConfig) InstallLayer(rawDir string, compatibleRuntimes []string) (layerId string, rerr error) {
+
+	zipPath := filepath.Clean(rawDir) + ".zip"
+	zipData, err := ioutil.ReadFile(zipPath)
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to read the zip file we just created")
+	}
+
+	layerName := strings.TrimSuffix(filepath.Base(zipPath), ".zip")
+	input := &lambda.PublishLayerVersionInput{
+		LayerName:          aws.String(layerName),
+		Content:            &lambda.LayerVersionContentInput{ZipFile: zipData},
+		CompatibleRuntimes: aws.StringSlice(compatibleRuntimes),
+	}
+
+	self.log.Info("Uploading layer: " + layerName)
+	output, err := self.Session().PublishLayerVersion(input)
+	if err != nil {
+		return "", decodeAwsError(err)
+	}
+
+	return *output.LayerVersionArn, nil
+}
+
+// Removes a layer from the service. Does not affect packages.
+func (self *awsLambdaConfig) RemoveLayer(name string) (rerr error) {
+
+	layerVersions, err := self.layerVersionsByName(name)
+	if err != nil {
+		return err
+	}
+
+	for _, layerVersion := range layerVersions {
+
+		layerVersionARN := strings.Split(*layerVersion.LayerVersionArn, ":")
+		layerARN := strings.Join(layerVersionARN[:len(layerVersionARN)-1], ":")
+
+		input := &lambda.DeleteLayerVersionInput{
+			LayerName:     aws.String(layerARN),
+			VersionNumber: layerVersion.Version,
+		}
+
+		_, err := self.Session().DeleteLayerVersion(input)
+		if err != nil {
+			return decodeAwsError(err)
+		}
+	}
+
+	return nil
+}
+
+func (self *awsLambdaConfig) layerVersionsByName(name string) ([]*lambda.LayerVersionsListItem, error) {
+
+	var marker, layerARN *string
+
+	for {
+		output, err := self.Session().ListLayers(&lambda.ListLayersInput{Marker: marker})
+		if err != nil {
+			return nil, decodeAwsError(err)
+		}
+		for _, layer := range output.Layers {
+			if *layer.LayerName == name {
+				layerARN = layer.LayerArn
+				break
+			}
+		}
+		if output.NextMarker == nil {
+			break
+		}
+		marker = output.NextMarker
+	}
+
+	if layerARN == nil {
+		return nil, nil
+	}
+
+	versions := make([]*lambda.LayerVersionsListItem, 0)
+
+	marker = nil
+	for {
+		input := &lambda.ListLayerVersionsInput{
+			LayerName: layerARN,
+			Marker:    marker,
+		}
+
+		output, err := self.Session().ListLayerVersions(input)
+		if err != nil {
+			return nil, decodeAwsError(err)
+		}
+
+		versions = append(versions, output.LayerVersions...)
+
+		if output.NextMarker == nil {
+			break
+		}
+		marker = output.NextMarker
+	}
+
+	return versions, nil
 }
 
 func (self *awsLambdaConfig) Destroy() {
@@ -104,18 +196,14 @@ func (self *awsLambdaConfig) Destroy() {
 }
 
 func (self *awsLambdaConfig) Invoke(fName string, args string) (resp *bytes.Buffer, rerr error) {
-	if self.session == nil {
-		sess := session.Must(session.NewSession())
-		self.session = lambda.New(sess, &aws.Config{Region: aws.String(self.region)})
-	}
 
-	awsResp, err := self.session.Invoke(&lambda.InvokeInput{
+	awsResp, err := self.Session().Invoke(&lambda.InvokeInput{
 		FunctionName: aws.String(fName),
 		Payload:      []byte(args),
 		// This is a synchronous invocation, our API might need to change for async
 		InvocationType: aws.String("RequestResponse")})
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to invoke function")
+		return nil, errors.Wrap(decodeAwsError(err), "failed to invoke function")
 	}
 	resp = bytes.NewBuffer(awsResp.Payload)
 
@@ -132,10 +220,6 @@ func (self *awsLambdaConfig) Invoke(fName string, args string) (resp *bytes.Buff
 }
 
 func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, layers []string) (rerr error) {
-	if self.session == nil {
-		sess := session.Must(session.NewSession())
-		self.session = lambda.New(sess, &aws.Config{Region: aws.String(self.region)})
-	}
 
 	funcName := strings.TrimSuffix(filepath.Base(zipPath), ".zip")
 
@@ -156,7 +240,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, l
 	}
 
 	var result *lambda.FunctionConfiguration
-	exists, err := lambdaExists(self.session, funcName)
+	exists, err := lambdaExists(self.Session(), funcName)
 	if err != nil {
 		return errors.Wrap(err, "Failure checking function status:")
 	}
@@ -169,7 +253,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, l
 				Layers:       awsLayers,
 			}
 
-			_, err := self.session.UpdateFunctionConfiguration(request)
+			_, err := self.Session().UpdateFunctionConfiguration(request)
 			if err != nil {
 				return errors.Wrap(err, "Failure updating function configuration:")
 			}
@@ -181,7 +265,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, l
 		}
 
 		self.log.Info("Updating Function: " + funcName)
-		result, err = self.session.UpdateFunctionCode(req)
+		result, err = self.Session().UpdateFunctionCode(req)
 	} else {
 		awsVpcConfig := lambda.VpcConfig{}
 		if self.vpcConfig != "" {
@@ -207,36 +291,13 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, l
 		}
 
 		self.log.Info("Creating Function: " + funcName)
-		result, err = self.session.CreateFunction(req)
+		result, err = self.Session().CreateFunction(req)
 	}
 	if err != nil {
-		var errStr string
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case lambda.ErrCodeResourceConflictException:
-				errStr = fmt.Sprintln(lambda.ErrCodeResourceConflictException, aerr.Error())
-			case lambda.ErrCodeServiceException:
-				errStr = fmt.Sprintln(lambda.ErrCodeServiceException, aerr.Error())
-			case lambda.ErrCodeInvalidParameterValueException:
-				errStr = fmt.Sprintln(lambda.ErrCodeInvalidParameterValueException, aerr.Error())
-			case lambda.ErrCodeResourceNotFoundException:
-				errStr = fmt.Sprintln(lambda.ErrCodeResourceNotFoundException, aerr.Error())
-			case lambda.ErrCodeTooManyRequestsException:
-				errStr = fmt.Sprintln(lambda.ErrCodeTooManyRequestsException, aerr.Error())
-			case lambda.ErrCodeCodeStorageExceededException:
-				errStr = fmt.Sprintln(lambda.ErrCodeCodeStorageExceededException, aerr.Error())
-			default:
-				errStr = fmt.Sprintln(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			errStr = fmt.Sprintln(err.Error())
-		}
-		return errors.New(errStr)
+		return decodeAwsError(err)
 	}
-	self.log.Info("Success:", result)
 
+	self.log.Info("Success:", result)
 	return nil
 }
 
@@ -245,24 +306,7 @@ func lambdaExists(session *lambda.Lambda, fName string) (bool, error) {
 
 	result, err := session.ListFunctions(req)
 	if err != nil {
-		var errStr string
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case lambda.ErrCodeServiceException:
-				errStr = fmt.Sprintln(lambda.ErrCodeServiceException, aerr.Error())
-			case lambda.ErrCodeTooManyRequestsException:
-				errStr = fmt.Sprintln(lambda.ErrCodeTooManyRequestsException, aerr.Error())
-			case lambda.ErrCodeInvalidParameterValueException:
-				errStr = fmt.Sprintln(lambda.ErrCodeInvalidParameterValueException, aerr.Error())
-			default:
-				errStr = fmt.Sprintln(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			errStr = fmt.Sprintln(err.Error())
-		}
-		return false, errors.New(errStr)
+		return false, decodeAwsError(err)
 	}
 
 	for _, f := range result.Functions {
@@ -270,6 +314,7 @@ func lambdaExists(session *lambda.Lambda, fName string) (bool, error) {
 			return true, nil
 		}
 	}
+
 	return false, nil
 }
 
@@ -326,4 +371,17 @@ func zipRaw(rawPath, dstPath string) error {
 		return err
 	}
 	return nil
+}
+
+func decodeAwsError(err error) error {
+
+	var errStr string
+
+	if aerr, ok := err.(awserr.Error); ok {
+		errStr = fmt.Sprintln(aerr.Code(), aerr.Error())
+	} else {
+		errStr = fmt.Sprintln(err.Error())
+	}
+
+	return errors.New(errStr)
 }

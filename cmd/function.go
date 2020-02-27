@@ -10,8 +10,8 @@ import (
 // functionCmd represents the function command
 var functionCmd = &cobra.Command{
 	Use:   "function",
-	Short: "FaaS interaction",
-	Long:  `Commands for dealing with your configured FaaS provider.`,
+	Short: "Manage FaaS function",
+	Long:  `Commands for dealing with functions of your configured FaaS provider.`,
 }
 
 func init() {

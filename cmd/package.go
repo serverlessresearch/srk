@@ -59,5 +59,4 @@ func init() {
 	// something that will be clear in the help output until we have all the
 	// options parsed
 	packageCmd.Flags().StringVarP(&packageCmdConfig.name, "function-name", "n", "source", "Optional name for this function, if different than the source name")
-
 }

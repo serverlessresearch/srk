@@ -37,6 +37,15 @@ type FunctionService interface {
 	// Removes a function from the service. Does not affect packages.
 	Remove(fName string) (rerr error)
 
+	// Install a layer to the desired FaaS service. It is assumed that
+	// Package() has already been called on this rawDir. The name of rawDir is
+	// also the name of the layer.
+	// Returns: Id of the installed layer
+	InstallLayer(rawDir string, compatibleRuntimes []string) (layerId string, rerr error)
+
+	// Removes a layer from the service. Does not affect packages.
+	RemoveLayer(name string) (rerr error)
+
 	// Invoke function
 	// fName: Name of function
 	// args: JSON-encoded argument string

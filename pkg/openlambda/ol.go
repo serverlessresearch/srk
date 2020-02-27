@@ -162,6 +162,16 @@ func (self *olConfig) Remove(fName string) error {
 	return nil
 }
 
+func (self *olConfig) InstallLayer(rawDir string, compatibleRuntimes []string) (layerId string, rerr error) {
+
+	return "", errors.New("support for layers is not implemented yet")
+}
+
+func (self *olConfig) RemoveLayer(name string) (rerr error) {
+
+	return errors.New("support for layers is not implemented yet")
+}
+
 func (self *olConfig) Destroy() {
 	if self.sessionStarted && self.isLocal {
 		self.terminateOlWorker()
