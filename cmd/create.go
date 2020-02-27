@@ -16,6 +16,7 @@ var createCmdConfig struct {
 	files   string
 	name    string
 	env     string
+	layers  string
 }
 
 var createCmd = &cobra.Command{
@@ -34,8 +35,9 @@ function package" and "srk function install".`,
 		}
 		srkManager.Logger.Info("Function name: " + funcName)
 
-		includes := strings.Split(createCmdConfig.include, ",")
-		files := strings.Split(createCmdConfig.files, ",")
+		includes := parseList(createCmdConfig.include)
+		files := parseList(createCmdConfig.files)
+		layers := parseList(createCmdConfig.layers)
 		rawDir := srkManager.GetRawPath(funcName)
 
 		if err := srkManager.CreateRaw(createCmdConfig.source, funcName, includes, files); err != nil {
@@ -49,7 +51,7 @@ function package" and "srk function install".`,
 		}
 		srkManager.Logger.Info("Created FaaS Package: " + pkgPath)
 
-		if err := srkManager.Provider.Faas.Install(rawDir, parseKeyValue(createCmdConfig.env)); err != nil {
+		if err := srkManager.Provider.Faas.Install(rawDir, parseKeyValue(createCmdConfig.env), layers); err != nil {
 			return errors.Wrap(err, "Installation failed")
 		}
 		srkManager.Logger.Info("Successfully installed function")
@@ -65,6 +67,7 @@ func init() {
 	createCmd.Flags().StringVarP(&createCmdConfig.include, "include", "i", "", "what to include, e.g., bench")
 	createCmd.Flags().StringVarP(&createCmdConfig.files, "files", "f", "", "additional files to include")
 	createCmd.Flags().StringVarP(&createCmdConfig.env, "env", "e", "", "list of environment vars: var1=value1,var2=value2")
+	createCmd.Flags().StringVarP(&createCmdConfig.layers, "layers", "l", "", "list of additional layer ARNs")
 	// The actual default is derived from the source option, so we set it
 	// something that will be clear in the help output until we have all the
 	// options parsed

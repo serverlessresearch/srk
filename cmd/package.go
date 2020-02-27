@@ -30,8 +30,8 @@ can manually inspect or modify it.`,
 			packageCmdConfig.name = strings.TrimSuffix(path.Base(packageCmdConfig.source), path.Ext(packageCmdConfig.source))
 		}
 
-		includes := strings.Split(packageCmdConfig.include, ",")
-		files := strings.Split(packageCmdConfig.files, ",")
+		includes := parseList(packageCmdConfig.include)
+		files := parseList(packageCmdConfig.files)
 		rawDir := srkManager.GetRawPath(packageCmdConfig.name)
 
 		if err := srkManager.CreateRaw(packageCmdConfig.source, packageCmdConfig.name, includes, files); err != nil {

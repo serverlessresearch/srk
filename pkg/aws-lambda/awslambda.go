@@ -62,9 +62,9 @@ func (self *awsLambdaConfig) Package(rawDir string) (zipDir string, rerr error) 
 	return zipPath, nil
 }
 
-func (self *awsLambdaConfig) Install(rawDir string, env map[string]string) (rerr error) {
+func (self *awsLambdaConfig) Install(rawDir string, env map[string]string, layers []string) (rerr error) {
 	zipPath := filepath.Clean(rawDir) + ".zip"
-	return self.awsInstall(zipPath, env)
+	return self.awsInstall(zipPath, env, layers)
 }
 
 func (self *awsLambdaConfig) Remove(fName string) error {
@@ -131,7 +131,7 @@ func (self *awsLambdaConfig) Invoke(fName string, args string) (resp *bytes.Buff
 	return resp, nil
 }
 
-func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string) (rerr error) {
+func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, layers []string) (rerr error) {
 	if self.session == nil {
 		sess := session.Must(session.NewSession())
 		self.session = lambda.New(sess, &aws.Config{Region: aws.String(self.region)})
@@ -146,11 +146,13 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string) (
 
 	var awsEnv *lambda.Environment
 	if env != nil {
-		vars := make(map[string]*string)
-		for key, value := range env {
-			vars[key] = aws.String(value)
-		}
+		vars := aws.StringMap(env)
 		awsEnv = &lambda.Environment{Variables: vars}
+	}
+
+	var awsLayers []*string
+	if layers != nil {
+		awsLayers = aws.StringSlice(layers)
 	}
 
 	var result *lambda.FunctionConfiguration
@@ -164,6 +166,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string) (
 			request := &lambda.UpdateFunctionConfigurationInput{
 				FunctionName: aws.String(funcName),
 				Environment:  awsEnv,
+				Layers:       awsLayers,
 			}
 
 			_, err := self.session.UpdateFunctionConfiguration(request)
@@ -199,6 +202,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string) (
 			Runtime:     aws.String("python3.8"),
 			Timeout:     aws.Int64(15),
 			Environment: awsEnv,
+			Layers:      awsLayers,
 			VpcConfig:   &awsVpcConfig,
 		}
 

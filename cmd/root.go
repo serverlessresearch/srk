@@ -52,6 +52,15 @@ func Execute() {
 	}
 }
 
+func parseList(s string) []string {
+
+	if s == "" {
+		return nil
+	}
+
+	return strings.Split(s, ",")
+}
+
 func parseKeyValue(s string) map[string]string {
 
 	if s == "" {

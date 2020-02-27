@@ -7,10 +7,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	installName string
-	installEnv  string
-)
+var installCmdConfig struct {
+	name   string
+	env    string
+	layers string
+}
 
 // installCmd represents the install command
 var installCmd = &cobra.Command{
@@ -18,9 +19,11 @@ var installCmd = &cobra.Command{
 	Short: "Install a pre-packaged function to the configured FaaS service",
 	Long:  `Install a function to the FaaS service. It is assumed that you have already packaged this function (using the 'package' command).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		rawDir := srkManager.GetRawPath(installName)
 
-		if err := srkManager.Provider.Faas.Install(rawDir, parseKeyValue(installEnv)); err != nil {
+		layers := parseList(installCmdConfig.layers)
+		rawDir := srkManager.GetRawPath(installCmdConfig.name)
+
+		if err := srkManager.Provider.Faas.Install(rawDir, parseKeyValue(installCmdConfig.env), layers); err != nil {
 			return errors.Wrap(err, "Installation failed")
 		}
 		srkManager.Logger.Info("Successfully installed function")
@@ -31,6 +34,7 @@ var installCmd = &cobra.Command{
 func init() {
 	functionCmd.AddCommand(installCmd)
 
-	installCmd.Flags().StringVarP(&installName, "function-name", "n", "", "The function to install")
-	installCmd.Flags().StringVarP(&installEnv, "env", "e", "", "list of environment vars: var1=value1,var2=value2")
+	installCmd.Flags().StringVarP(&installCmdConfig.name, "function-name", "n", "", "The function to install")
+	installCmd.Flags().StringVarP(&installCmdConfig.env, "env", "e", "", "list of environment vars: var1=value1,var2=value2")
+	installCmd.Flags().StringVarP(&installCmdConfig.layers, "layers", "l", "", "list of additional layer ARNs")
 }
