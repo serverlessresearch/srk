@@ -73,10 +73,10 @@ func (self *SrkManager) Destroy() {
 	self.Provider.Faas.Destroy()
 }
 
-// GetRawPath returns a path to the raw directory for funcName (whether it
+// GetRawFunctionPath returns a path to the raw directory for funcName (whether it
 // exists or not) The raw directory is a backend-independent location for
 // staging files before interacting with backend systems.
-func (self *SrkManager) GetRawPath(funcName string) string {
+func (self *SrkManager) GetRawFunctionPath(funcName string) string {
 	return filepath.Join(
 		self.Cfg.GetString("buildDir"),
 		"functions",
@@ -93,15 +93,15 @@ func (self *SrkManager) GetRawLayerPath(layerName string) string {
 		layerName)
 }
 
-// CreateRaw places all provider-independent objects in a raw directory that
+// CreateRawFunction places all provider-independent objects in a raw directory that
 // will be packaged by the FaaS service. Will replace any existing rawDir.
 //   source: is the path to the user-provided source directory
 //   funcName: Unique name to give this function
 //   includes: List of standard SRK libraries to include (just the names of the
 //       packages, not paths)
 //   files: List of additional files to copy into the raw directory.
-func (self *SrkManager) CreateRaw(source string, funcName string, includes, files []string) (err error) {
-	rawDir := self.GetRawPath(funcName)
+func (self *SrkManager) CreateRawFunction(source string, funcName string, includes, files []string) (err error) {
+	rawDir := self.GetRawFunctionPath(funcName)
 
 	// Shared global function build directory
 	fBuildDir := filepath.Join(self.Cfg.GetString("buildDir"), "functions")
@@ -191,6 +191,22 @@ func (self *SrkManager) CreateRawLayer(source, name string, files []string) (str
 	}
 
 	return rawDir, nil
+}
+
+func (self *SrkManager) CleanDirectory(glob string) error {
+
+	matches, err := filepath.Glob(glob)
+	if err != nil {
+		return errors.Wrapf(err, "Error using glob %s", glob)
+	}
+
+	for _, path := range matches {
+		if err := os.RemoveAll(path); err != nil {
+			return errors.Wrapf(err, "Failed to remove directory %s", path)
+		}
+	}
+
+	return nil
 }
 
 func (self *SrkManager) initConfig(cfgPath *string) error {
