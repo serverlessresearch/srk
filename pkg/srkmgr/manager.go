@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	awslambda "github.com/serverlessresearch/srk/pkg/aws-lambda"
+	lambcilambda "github.com/serverlessresearch/srk/pkg/lambci-lambda"
 	"github.com/serverlessresearch/srk/pkg/openlambda"
 	"github.com/serverlessresearch/srk/pkg/srk"
 	"github.com/sirupsen/logrus"
@@ -17,9 +18,6 @@ import (
 // recommended to initialize multiple SrkManager's per host since NewManager()
 // may have side-effects depending on your configuration.
 
-// The SrkManager class represents a single session with SRK. It is not
-// recommended to initialize multiple SrkManager's per host since NewManager()
-// may have side-effects depending on your configuration.
 type SrkManager struct {
 	Provider *srk.Provider
 	Logger   srk.Logger
@@ -117,7 +115,7 @@ func (self *SrkManager) CreateRawFunction(source string, funcName string, includ
 
 	cmd := exec.Command("cp", "-r", source, rawDir)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return errors.Wrapf(err, "Adding source returned error\n%v", out)
+		return errors.Wrapf(err, "Adding source returned error\n%s", string(out))
 	}
 
 	// Copy includes into the raw directory
@@ -173,7 +171,7 @@ func (self *SrkManager) CreateRawLayer(source, name string, files []string) (str
 
 	cmd := exec.Command("cp", "-r", source, rawDir)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return "", errors.Wrapf(err, "Adding source returned error\n%v", out)
+		return "", errors.Wrapf(err, "Adding source returned error\n%s", string(out))
 	}
 
 	// Copy files into the raw directory
@@ -266,6 +264,10 @@ func (self *SrkManager) initFunctionService() error {
 		self.Provider.Faas, err = awslambda.NewConfig(
 			self.Logger.WithField("module", "faas.awslambda"),
 			self.Cfg.Sub("service.faas.awsLambda"))
+	case "lambciLambda":
+		self.Provider.Faas, err = lambcilambda.NewFunctionService(
+			self.Logger.WithField("module", "faas.lambcilambda"),
+			self.Cfg.Sub("service.faas.lambciLambda"))
 	default:
 		return errors.New("Unrecognized FaaS service: " + serviceName)
 	}

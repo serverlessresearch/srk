@@ -5,6 +5,8 @@ default-provider : "aws"
 # provider will have one implementation of each service category (although it
 # is possible to omit service categories of they are not needed)
 providers :
+  ec2 :
+    faas : "lambciLambda"
   aws :
     faas : "awsLambda"
     objStore : "s3"
@@ -34,4 +36,25 @@ service :
       # Optional vpc/security-group setup to use.
       # e.g.: "subnet-8910f2f5,sg-123456789abcdef"
       vpc-config : null
+    lambciLambda:
+      # path to scp command
+      scp : '/usr/bin/scp'
+      # path to ssh command
+      ssh : '/usr/bin/ssh'
+      # IP or hostname of server running the lambci/lambda docker image
+      host : 'ec2-client'
+      # user for scp + ssh
+      user : 'ubuntu'
+      # key file for scp + ssh
+      pem : '~/.aws/AWS.pem'
+      # port of invoke API on the server
+      port : 9001
+      # path to docker env file
+      envFile : '/home/ubuntu/env'
+      # path to task on server
+      taskDir : '/home/ubuntu/task'
+      # path to layer on server
+      layerDir : '/home/ubuntu/layer'
+      # path to layer pool on server
+      layersDir : '/home/ubuntu/layers'
     global:

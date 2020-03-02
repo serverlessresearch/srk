@@ -25,11 +25,11 @@ func Example() {
 	defer mgr.Destroy()
 
 	// ./helloWorld points to a directory containing a hello world FaaS function
-	if err = mgr.CreateRaw("./helloWorld", "hello", nil, nil); err != nil {
+	if err = mgr.CreateRawFunction("./helloWorld", "hello", nil, nil); err != nil {
 		fmt.Printf("Failed to create raw directory for lambda: %v\n", err)
 		os.Exit(1)
 	}
-	rawDir := mgr.GetRawPath("hello")
+	rawDir := mgr.GetRawFunctionPath("hello")
 
 	// Create the provider-specific representation of our function
 	_, err = mgr.Provider.Faas.Package(rawDir)
@@ -39,7 +39,7 @@ func Example() {
 	}
 
 	// Upload the function to the provider
-	if err := mgr.Provider.Faas.Install(rawDir); err != nil {
+	if err := mgr.Provider.Faas.Install(rawDir, nil, nil); err != nil {
 		fmt.Printf("Installation failed: %v\n", err)
 		os.Exit(1)
 	}
