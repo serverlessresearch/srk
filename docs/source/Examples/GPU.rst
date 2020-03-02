@@ -65,6 +65,6 @@ Once again, you should see "Success" printed as the response from the function.
 You are now ready to start experimenting with GPU-enabled functions. You should
 be able to do anything with the GPU in the function that you could do locally.
 Keep in mind that OpenLambda limits the available function concurrency to the
-number of GPUs when gpu mode is enabled to avoid collisions with devices. This
-may limit the number of distinct functions you can have active on a particular
-worker. We hope improve this functionality in the future.
+number of GPUs when gpu mode is enabled to avoid multiple functions sharing the
+same GPU. This may limit the number of distinct functions you can have active
+on a particular worker. We hope improve this functionality in the future.

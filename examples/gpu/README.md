@@ -1,7 +1,7 @@
 This example shows how to use CUDA with openlambda.
 
 # Overview
-The program does a simply vector add of two generated arrays and verifies that
+The program does a simple vector add of two generated arrays and verifies that
 the add was done correctly. The size of the vectors to add is passed in as an
 argument to the cloud function.
 
@@ -11,7 +11,7 @@ The main included source files are:
   - vadd: The compiled standalone binary for vadd.cu. You can call this from the command line.
   - vadd.so: The shared-library version of vadd.cu. This can be linked into other programs and called.
 
-f.py dynamically loads vadd.so using the ctypes library. It then converts it's
+f.py dynamically loads vadd.so using the ctypes library. It then converts its
 argument (a dictionary generated from the JSON arguments passed to lambda) to
 native c types and invokes the cudaTest function.
 
@@ -21,7 +21,7 @@ This example requires a custom version of OpenLambda that supports GPUs:
     $ git clone -b gpu git@github.com:NathanTP/open-lambda.git
 
 You can follow the instructions in that repo to install. You'll also need to
-configure srk to use that version (see srk/README.md for more details).
+configure SRK to use that version (see srk/README.md for more details).
 
 # Basic usage:
 First, compile the library:
