@@ -22,6 +22,7 @@ OpenLambda for FaaS and your local filesystem to provide object storage).
 
    QuickStart
    Configuration
+   Examples/index.rst
 
 .. Indices and tables
 .. ==================
