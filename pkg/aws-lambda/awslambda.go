@@ -249,6 +249,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, l
 		if awsEnv != nil {
 			request := &lambda.UpdateFunctionConfigurationInput{
 				FunctionName: aws.String(funcName),
+				Runtime:      aws.String("provided"),
 				Environment:  awsEnv,
 				Layers:       awsLayers,
 			}
@@ -283,7 +284,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, l
 			// TODO do we want to publish?
 			// Publish:      aws.Bool(true),
 			Role:        aws.String(self.role),
-			Runtime:     aws.String("python3.8"),
+			Runtime:     aws.String("provided"),
 			Timeout:     aws.Int64(15),
 			Environment: awsEnv,
 			Layers:      awsLayers,
