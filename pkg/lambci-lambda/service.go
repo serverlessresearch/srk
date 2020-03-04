@@ -6,6 +6,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/serverlessresearch/srk/pkg/command"
 	"github.com/serverlessresearch/srk/pkg/srk"
@@ -13,6 +14,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
+)
+
+const (
+	checkDelay = 100 * time.Millisecond
+	maxChecks  = 10
 )
 
 type lambciLambda struct {
@@ -91,10 +97,38 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, layer
 		return errors.Wrap(err, "error installing function")
 	}
 
+	// retrieve process id of running lambda docker image
+	pid, err := service.Ssh("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | cut -d \" \" -f 1")
+	if err != nil {
+		return errors.Wrap(err, "error retrieving lambda process id")
+	}
+
 	// install new env map - this triggers the lambda function reload
 	_, err = service.Ssh(fmt.Sprintf("echo -n \"%s\" > %s", Map2Lines(env), service.envFile))
 	if err != nil {
 		return errors.Wrap(err, "error updating environment")
+	}
+
+	// wait until function reload happened in case of running lambda docker image
+	if pid != "" {
+
+		checks := 0
+		for {
+			time.Sleep(checkDelay)
+
+			newPid, err := service.Ssh("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | cut -d \" \" -f 1")
+			if err != nil {
+				return errors.Wrap(err, "error retrieving lambda process id")
+			}
+			if newPid != "" && newPid != pid {
+				break
+			}
+
+			if checks >= maxChecks {
+				return errors.Errorf("lambda function container did not reload after %v, giving up", time.Duration(checks)*checkDelay)
+			}
+			checks++
+		}
 	}
 
 	return nil

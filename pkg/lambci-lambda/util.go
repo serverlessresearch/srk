@@ -6,8 +6,14 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
+)
+
+const (
+	maxRetries = 3
+	retryDelay = 1 * time.Second
 )
 
 func NextLayerVersion(layers []string) int {
@@ -50,21 +56,41 @@ func Map2Lines(m map[string]string) string {
 
 func HttpPost(url, data string) (*bytes.Buffer, error) {
 
-	response, err := http.Post(url, "application/json", strings.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
+	doPost := func() (*bytes.Buffer, error) {
 
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("POST %s (%s) returned status %s", url, data, response.Status)
+		response, err := http.Post(url, "application/json", strings.NewReader(data))
+		if err != nil {
+			return nil, err
+		}
+		defer response.Body.Close()
+
+		if response.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("POST %s (%s) returned status %s", url, data, response.Status)
+		}
+
+		result := new(bytes.Buffer)
+		_, err = result.ReadFrom(response.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		return result, nil
 	}
 
-	result := new(bytes.Buffer)
-	_, err = result.ReadFrom(response.Body)
-	if err != nil {
-		return nil, err
+	var err error
+	var result *bytes.Buffer
+
+	retries := 0
+	for {
+
+		result, err = doPost()
+		if err == nil || retries >= maxRetries {
+			break
+		}
+
+		time.Sleep(retryDelay)
+		retries++
 	}
 
-	return result, nil
+	return result, err
 }
