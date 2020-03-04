@@ -98,7 +98,7 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, layer
 	}
 
 	// retrieve process id of running lambda docker image
-	pid, err := service.Ssh("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | cut -d \" \" -f 1")
+	pid, err := service.Ssh("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | awk \"{print $1}\"")
 	if err != nil {
 		return errors.Wrap(err, "error retrieving lambda process id")
 	}
@@ -116,7 +116,7 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, layer
 		for {
 			time.Sleep(checkDelay)
 
-			newPid, err := service.Ssh("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | cut -d \" \" -f 1")
+			newPid, err := service.Ssh("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | awk \"{print $1}\"")
 			if err != nil {
 				return errors.Wrap(err, "error retrieving lambda process id")
 			}
