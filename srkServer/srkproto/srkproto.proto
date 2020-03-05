@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package srkproto;
+
+import "google/protobuf/empty.proto";
+
+service TestService {
+    rpc CopyFile(CopyFileArg) returns (google.protobuf.Empty) {}
+}
+
+message CopyFileArg {
+    string src = 1;
+    string dst = 2;
+}
+
