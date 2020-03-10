@@ -12,8 +12,23 @@ import (
 const inputDir = "testData"
 const outputDir = "testData/testOutput"
 
+func cleanOutput() error {
+	err := os.RemoveAll(outputDir)
+	if err != nil {
+		return errors.Wrap(err, "Failed to clean output directory")
+	}
+
+	err = os.Mkdir(outputDir, os.ModeDir|0700)
+	if err != nil {
+		return errors.Wrap(err, "Failed to create output directory")
+	}
+
+	return nil
+}
+
 func checkCopiedFile(orig, new string) error {
 	var err error
+
 	var origStat os.FileInfo
 	if origStat, err = os.Stat(orig); err != nil {
 		return errors.Wrap(err, "Failed to stat t1")
@@ -37,6 +52,10 @@ func checkCopiedFile(orig, new string) error {
 func TestCopyFile(t *testing.T) {
 	var err error
 
+	if err = cleanOutput(); err != nil {
+		t.Fatalf("%v", err)
+	}
+
 	inPath := filepath.Join(inputDir, "t1")
 	outPath := filepath.Join(outputDir, "t1")
 	if err = CopyFile(inPath, outPath); err != nil {
@@ -50,6 +69,10 @@ func TestCopyFile(t *testing.T) {
 
 func TestZip(t *testing.T) {
 	var err error
+
+	if err = cleanOutput(); err != nil {
+		t.Fatalf("%v", err)
+	}
 
 	err = ZipDir(inputDir, filepath.Join(inputDir, "d1"), filepath.Join(outputDir, "d1.zip"))
 	if err != nil {
@@ -75,20 +98,59 @@ func TestZip(t *testing.T) {
 	}
 }
 
-func TestMain(m *testing.M) {
-	err := os.RemoveAll(outputDir)
-	if err != nil {
-		fmt.Printf("Test setup failed: %v\n", err)
-		os.Exit(1)
+func TestTar(t *testing.T) {
+	var err error
+
+	if err = cleanOutput(); err != nil {
+		t.Fatalf("%v", err)
 	}
 
-	err = os.Mkdir(outputDir, os.ModeDir|0700)
+	err = TarDir(inputDir, filepath.Join(inputDir, "d1"), filepath.Join(outputDir, "d1.tgz"))
 	if err != nil {
-		fmt.Printf("Test setup failed: %v\n", err)
-		os.Exit(1)
+		t.Fatalf("Failed to tar file: %v\n", err)
 	}
 
-	v := m.Run()
+	fnames, err := Untar(filepath.Join(outputDir, "d1.tgz"), outputDir)
+	if err != nil {
+		t.Fatalf("Failed to extract file: %v\n", err)
+	}
 
-	os.Exit(v)
+	if len(fnames) != 2 {
+		t.Fatalf("Not enough extracted files: Expected %v, Got %v\n", 2, len(fnames))
+	}
+
+	for i, origP := range []string{"d1", "d1/t1"} {
+		outFilePath := filepath.Join(outputDir, origP)
+		inFilePath := filepath.Join(inputDir, origP)
+		if fnames[i] != outFilePath {
+			t.Fatalf("Extracted file did not contain expected file: Expected %v, Got %v\n", outFilePath, fnames[i])
+		}
+		if err := checkCopiedFile(inFilePath, outFilePath); err != nil {
+			t.Fatalf("Extracted file does not match original: %v\n", err)
+		}
+	}
 }
+
+// func TestMain(m *testing.M) {
+// 	var err error
+//
+// 	if err = cleanOutput(); err != nil {
+// 		return err
+// 	}
+//
+// 	err = os.RemoveAll(outputDir)
+// 	if err != nil {
+// 		fmt.Printf("Test setup failed: %v\n", err)
+// 		os.Exit(1)
+// 	}
+//
+// 	err = os.Mkdir(outputDir, os.ModeDir|0700)
+// 	if err != nil {
+// 		fmt.Printf("Test setup failed: %v\n", err)
+// 		os.Exit(1)
+// 	}
+//
+// 	v := m.Run()
+//
+// 	os.Exit(v)
+// }
