@@ -13,3 +13,16 @@ message CopyFileArg {
     string dst = 2;
 }
 
+service FunctionService {
+    //ByteTransfer must represent a tar file with a single top-level directory.
+    //The name of this directory will be used as the name of the function.
+    rpc Package(stream ByteTransfer) returns (PackageRet) {}
+}
+
+// Used to send a stream of bytes
+message ByteTransfer {
+    bytes chunk = 1;
+}
+
+// Nothing to report for now, future versions may include something here
+message PackageRet {}
