@@ -56,7 +56,7 @@ func (self *awsLambdaConfig) ResetStats() error {
 
 func (self *awsLambdaConfig) Package(rawDir string) (zipDir string, rerr error) {
 	zipPath := filepath.Clean(rawDir) + ".zip"
-	rerr = zipRaw(rawDir, zipPath)
+	rerr = srk.ZipDir(rawDir, rawDir, zipPath)
 	if rerr != nil {
 		return "", rerr
 	}

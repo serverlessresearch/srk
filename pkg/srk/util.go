@@ -1,11 +1,20 @@
 package srk
 
+// Utility functions common to all srk applications
+
 import (
+	"archive/zip"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/pkg/errors"
 )
 
+// Copy a file from src to dst (basically the posix 'cp' command)
+// Src and dst represent paths to regular files (not directories)
 func CopyFile(src, dst string) error {
 	sourceFileStat, err := os.Stat(src)
 	if err != nil {
@@ -34,4 +43,124 @@ func CopyFile(src, dst string) error {
 	}
 
 	return nil
+}
+
+// Create a zip archive from srcPath stored at dstPath.
+// The paths in the archive will all be relative to basePath. For example,
+// ZipDir("foo/bar", "foo/bar", "bar.zip") would include all of the files in
+// bar/, not including bar/, into an archive at "./bar.zip". ZipDir("foo/",
+// "foo/bar", "bar.zip") would include the top-level directory 'bar/' in the
+// archive.
+func ZipDir(basePath, srcPath, dstPath string) error {
+	destFile, err := os.Create(dstPath)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	zipWriter := zip.NewWriter(destFile)
+	defer zipWriter.Close()
+	err = filepath.Walk(srcPath, func(filePath string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		relPath, err := filepath.Rel(basePath, filePath)
+		if err != nil {
+			return errors.Wrap(err, "Couldn't make relative path while zipping")
+		}
+
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+
+		header.Name = relPath
+		header.Method = zip.Deflate
+		writer, err := zipWriter.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+
+		sourceFile, err := os.Open(filePath)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(writer, sourceFile)
+		if err != nil {
+			return err
+		}
+
+		err = sourceFile.Close()
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Unzip will decompress a zip archive, moving all files and folders
+// within the zip file (parameter 1) to an output directory (parameter 2).
+// Credit: https://golangcode.com/unzip-files-in-go/
+func Unzip(src string, dest string) ([]string, error) {
+
+	var filenames []string
+
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		return filenames, err
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+
+		// Store filename/path for returning and using later on
+		fpath := filepath.Join(dest, f.Name)
+
+		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
+		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
+			return filenames, fmt.Errorf("%s: illegal file path", fpath)
+		}
+
+		filenames = append(filenames, fpath)
+
+		if f.FileInfo().IsDir() {
+			// Make Folder
+			os.MkdirAll(fpath, os.ModePerm)
+			continue
+		}
+
+		// Make File
+		if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+			return filenames, err
+		}
+
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return filenames, err
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			return filenames, err
+		}
+
+		_, err = io.Copy(outFile, rc)
+
+		// Close the file without defer to close before next iteration of loop
+		outFile.Close()
+		rc.Close()
+
+		if err != nil {
+			return filenames, err
+		}
+	}
+	return filenames, nil
 }
