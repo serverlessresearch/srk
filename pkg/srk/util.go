@@ -112,7 +112,6 @@ func ZipDir(basePath, srcPath, dstPath string) error {
 // within the zip file (parameter 1) to an output directory (parameter 2).
 // Credit: https://golangcode.com/unzip-files-in-go/
 func Unzip(src, dst string) ([]string, error) {
-
 	var filenames []string
 
 	r, err := zip.OpenReader(src)
@@ -235,17 +234,23 @@ func TarDir(basePath, srcPath, dstPath string) error {
 
 // Untar will decompress a .tar.gz archive, moving all files and folders
 // within the tar file (parameter 1) to an output directory (parameter 2).
-// Slightly modified from: https://medium.com/@skdomino/taring-untaring-files-in-go-6b07cf56bc07
 func Untar(src, dst string) ([]string, error) {
+	var err error
+	srcReader, err := os.Open(src)
+	if err != nil {
+		return []string{}, err
+	}
+	defer srcReader.Close()
+
+	return UntarStream(srcReader, dst)
+}
+
+// UntarStream accepts an io.Reader representing a tar.gz file and will extract it to dstPath
+// based on: https://medium.com/@skdomino/taring-untaring-files-in-go-6b07cf56bc07
+func UntarStream(src io.Reader, dstPath string) ([]string, error) {
 	var filenames []string
 
-	r, err := os.Open(src)
-	if err != nil {
-		return filenames, err
-	}
-	defer r.Close()
-
-	gzr, err := gzip.NewReader(r)
+	gzr, err := gzip.NewReader(src)
 	if err != nil {
 		return filenames, err
 	}
@@ -272,8 +277,8 @@ func Untar(src, dst string) ([]string, error) {
 		}
 
 		// the target location where the dir/file should be created
-		target := filepath.Join(dst, header.Name)
-		if !strings.HasPrefix(target, filepath.Clean(dst)+string(os.PathSeparator)) {
+		target := filepath.Join(dstPath, header.Name)
+		if !strings.HasPrefix(target, filepath.Clean(dstPath)+string(os.PathSeparator)) {
 			return filenames, fmt.Errorf("%s: illegal file path", target)
 		}
 		filenames = append(filenames, target)

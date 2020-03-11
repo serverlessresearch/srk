@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 
@@ -52,12 +52,29 @@ type srkServer struct {
 }
 
 func (s *srkServer) CopyFile(context.Context, *srkproto.CopyFileArg) (*empty.Empty, error) {
-	return &empty.Empty{}, srk.CopyFile("./t1", "./t2")
+	return &empty.Empty{}, srk.CopyFile("./testData/t1", "./testData/testOutput/t2")
 }
 
-func (s *srkServer) Package(ctx context.Context, chunks srkproto.FunctionService_PackageServer) error {
-	//Store the incoming tar into a temporary file, we'll unpack it and then delete it
-	return errors.New("Not implemented")
+// Package implements a gRPC wrapper around srk.FunctionService.Package().
+// chunks represents a stream of bytes representing a tar file containing
+// everything that should be included in the function. This tar should extract
+// to a single top-level folder. The name of this folder will be used as the
+// name of the function.
+func (s *srkServer) Package(chunks srkproto.FunctionService_PackageServer) error {
+	funcReader := &pbReader{chunks: chunks}
+
+	//XXX temporary test
+	fmt.Println("Receiving file")
+	dst, err := os.OpenFile("testData/testOutput/t1", os.O_WRONLY|os.O_CREATE, 0777)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+	fmt.Println("Opened file")
+	io.Copy(dst, funcReader)
+	fmt.Println("Transfer Complete")
+
+	return nil
 }
 
 // Creates a new srk manager (interface to SRK). Be sure to call mgr.Destroy()
