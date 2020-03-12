@@ -181,28 +181,9 @@ func sendStream(sendStream srkproto.FunctionService_PackageClient, stream io.Rea
 	}
 }
 
-func TestPackage(t *testing.T) {
-	// Create the server
-	s, err := newFunctionServiceServer()
-	if err != nil {
-		t.Fatalf("Failed to create FunctionServiceServer: %v\n", err)
-	}
-	defer s.GracefulStop()
+func packagePath(t *testing.T, meta *metadata.MD, c srkproto.FunctionServiceClient) {
+	ctx := metadata.NewOutgoingContext(context.Background(), *meta)
 
-	// Create the client
-	c, err := newFunctionServiceClient()
-	if err != nil {
-		t.Fatalf("Failed to get function service client: %v\n", err)
-	}
-
-	// meta := metadata.New(map[string]string{"name": "test1"})
-	meta := metadata.Pairs("name", "test1")
-
-	// ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	// defer cancel()
-	ctx := metadata.NewOutgoingContext(context.Background(), meta)
-
-	fmt.Println("calling package")
 	stream, err := c.Package(ctx)
 	if err != nil {
 		t.Fatalf("Failed to invoke rpc Package: %v\n", err)
@@ -223,6 +204,30 @@ func TestPackage(t *testing.T) {
 	if err != nil && err != io.EOF {
 		t.Errorf("Failed to close stream: %v\n", err)
 	}
+}
+
+func TestPackage(t *testing.T) {
+	// Create the server
+	s, err := newFunctionServiceServer()
+	if err != nil {
+		t.Fatalf("Failed to create FunctionServiceServer: %v\n", err)
+	}
+	defer s.GracefulStop()
+
+	// Create the client
+	c, err := newFunctionServiceClient()
+	if err != nil {
+		t.Fatalf("Failed to get function service client: %v\n", err)
+	}
+
+	// Simple test with just the function
+	meta := metadata.Pairs("name", "test1")
+	packagePath(t, &meta, c)
+
+	// Try to handle non-empty includes (ideally we'd have a few includes but
+	// srk only has the one right now
+	meta = metadata.Pairs("name", "test2", "includes", "cfbench")
+	packagePath(t, &meta, c)
 }
 
 func initSandbox(newSandboxPath string) error {
