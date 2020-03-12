@@ -1,18 +1,18 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net"
 	"os"
 
-	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/pkg/errors"
 	"github.com/serverlessresearch/srk/pkg/srk"
 	"github.com/serverlessresearch/srk/pkg/srkmgr"
 	"github.com/serverlessresearch/srk/srkServer/srkproto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 type pbByteStream interface {
@@ -46,13 +46,16 @@ func (r *pbReader) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
-type srkServer struct {
-	srkproto.UnimplementedTestServiceServer
-	mgr *srkmgr.SrkManager
-}
+// Represents a function registration session so that we can track matching
+// RegisterFunc() and UploadFunc() calls.
+// type registerSession struct {
+// 	client net.Addr
+// 	fname  string
+// }
 
-func (s *srkServer) CopyFile(context.Context, *srkproto.CopyFileArg) (*empty.Empty, error) {
-	return &empty.Empty{}, srk.CopyFile("./testData/t1", "./testData/testOutput/t2")
+type srkServer struct {
+	srkproto.UnimplementedFunctionServiceServer
+	mgr *srkmgr.SrkManager
 }
 
 // Package implements a gRPC wrapper around srk.FunctionService.Package().
@@ -61,18 +64,46 @@ func (s *srkServer) CopyFile(context.Context, *srkproto.CopyFileArg) (*empty.Emp
 // to a single top-level folder. The name of this folder will be used as the
 // name of the function.
 func (s *srkServer) Package(chunks srkproto.FunctionService_PackageServer) error {
-	funcReader := &pbReader{chunks: chunks}
 
-	//XXX temporary test
-	fmt.Println("Receiving file")
-	dst, err := os.OpenFile("testData/testOutput/t1", os.O_WRONLY|os.O_CREATE, 0777)
+	meta, ok := metadata.FromIncomingContext(chunks.Context())
+	if !ok {
+		return errors.New("Failed to parse metadata")
+	}
+
+	rawName, ok := meta["name"]
+	if !ok {
+		return errors.New("Metadata option \"name\" is required")
+	}
+	name := rawName[0]
+
+	includes := meta["includes"]
+
+	// Unpack the uploaded file to a temporary location
+	tdir, err := ioutil.TempDir("", "")
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
-	fmt.Println("Opened file")
-	io.Copy(dst, funcReader)
-	fmt.Println("Transfer Complete")
+	// defer os.RemoveAll(tdir)
+
+	funcReader := &pbReader{chunks: chunks}
+	_, err = srk.UntarStream(funcReader, tdir)
+	if err != nil {
+		return errors.Wrap(err, "Could not unpack received tar file")
+	}
+
+	// Package the function
+	rawDir := s.mgr.GetRawPath(name)
+
+	if err := s.mgr.CreateRaw(tdir, name, includes); err != nil {
+		return errors.Wrap(err, "Packaging function failed")
+	}
+	s.mgr.Logger.Info("Created raw function: " + rawDir)
+
+	pkgPath, err := s.mgr.Provider.Faas.Package(rawDir)
+	if err != nil {
+		return errors.Wrap(err, "Packaing failed")
+	}
+	s.mgr.Logger.Info("Package created at: " + pkgPath)
 
 	return nil
 }
@@ -83,7 +114,7 @@ func getMgr() *srkmgr.SrkManager {
 	mgrArgs := map[string]interface{}{}
 	mgrArgs["config-file"] = "./srk.yaml"
 	srkLogger := logrus.New()
-	srkLogger.SetLevel(logrus.WarnLevel)
+	srkLogger.SetLevel(logrus.InfoLevel)
 	mgrArgs["logger"] = srkLogger
 
 	mgr, err := srkmgr.NewManager(mgrArgs)
@@ -104,7 +135,7 @@ func main() {
 
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
-	srkproto.RegisterTestServiceServer(grpcServer, &srkServer{mgr: getMgr()})
+	srkproto.RegisterFunctionServiceServer(grpcServer, &srkServer{mgr: getMgr()})
 	fmt.Println("Server ready")
 	grpcServer.Serve(listener)
 }

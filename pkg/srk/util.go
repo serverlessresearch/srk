@@ -296,6 +296,15 @@ func UntarStream(src io.Reader, dstPath string) ([]string, error) {
 
 		// if it's a file create it
 		case tar.TypeReg:
+
+			// Some tars don't include entries for directories (gnu tar seems
+			// to do this). We have to make it ourselves in this case.
+			if _, err := os.Stat(filepath.Dir(target)); err != nil {
+				if err := os.MkdirAll(filepath.Dir(target), 0775); err != nil {
+					return filenames, err
+				}
+			}
+
 			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
 			if err != nil {
 				return filenames, err

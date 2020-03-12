@@ -2,22 +2,27 @@ syntax = "proto3";
 
 package srkproto;
 
-import "google/protobuf/empty.proto";
-
-service TestService {
-    rpc CopyFile(CopyFileArg) returns (google.protobuf.Empty) {}
-}
-
-message CopyFileArg {
-    string src = 1;
-    string dst = 2;
-}
-
 service FunctionService {
+    
+    // //Register function metadata with srk. This RPC should be followed with
+    // //UploadFunc to complete the packaging. UploadFunc() must be called before
+    // //registering a new function. This is needed because you cannot mix
+    // //streaming and scalar arguments in gRPC (otherwise there would be a
+    // //unified package command).
+    // rpc RegisterFunc(RegisterArg) returns (RegisterRet) {}
+
     //ByteTransfer must represent a tar file with a single top-level directory.
-    //The name of this directory will be used as the name of the function.
+    // The context should include metadata with the following fields:
+    // Required: name - the name of the function being packaged
+    // Optional: includes - comma-separated list of srk packages to include
+    //                      with the function
     rpc Package(stream ByteTransfer) returns (PackageRet) {}
 }
+
+// message RegisterArg {
+//     string name = 1;
+//     repeated string includes = 2;
+// }
 
 // Used to send a stream of bytes
 message ByteTransfer {
@@ -26,3 +31,4 @@ message ByteTransfer {
 
 // Nothing to report for now, future versions may include something here
 message PackageRet {}
+// message RegisterRet {}

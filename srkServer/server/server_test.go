@@ -3,18 +3,20 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/serverlessresearch/srk/srkServer/srkproto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
 )
 
@@ -22,6 +24,10 @@ import (
 const chunkSize = 60
 
 const bufConnSize = 1024 * 1024
+
+const testDir = "testData"
+const sandboxDir = "testData/sandbox"
+const testInput = "echo.tar.gz"
 
 type dummyPackageServer struct {
 	// Here just to implement FunctionService_PackageServer interface
@@ -139,39 +145,9 @@ func bufDialer(string, time.Duration) (net.Conn, error) {
 	return listener.Dial()
 }
 
-func TestCopyFile(t *testing.T) {
-	s := grpc.NewServer()
-	srkproto.RegisterTestServiceServer(s, &srkServer{})
-	go func() {
-		if err := s.Serve(listener); err != nil {
-			log.Fatalf("Server exited with error: %v", err)
-		}
-	}()
-	defer s.GracefulStop()
-
-	conn, err := grpc.Dial("bufnet", grpc.WithDialer(bufDialer), grpc.WithInsecure())
-	if err != nil {
-		t.Fatalf("Could not connect to bufnet: %v\n", err)
-	}
-
-	c := srkproto.NewTestServiceClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	fmt.Println("Sending RPC:")
-	r, err := c.CopyFile(ctx, &srkproto.CopyFileArg{Src: "./t1", Dst: "./t2"})
-	if err != nil {
-		log.Fatalf("RPC failed: %v\n", err)
-	}
-	fmt.Printf("Response: %v\n", r)
-	fmt.Println("Test Success")
-
-}
-
 func newFunctionServiceServer() (*grpc.Server, error) {
 	s := grpc.NewServer()
-	srkproto.RegisterFunctionServiceServer(s, &srkServer{})
+	srkproto.RegisterFunctionServiceServer(s, &srkServer{mgr: getMgr()})
 	go func() {
 		if err := s.Serve(listener); err != nil {
 			log.Fatalf("Server exited with error: %v", err)
@@ -219,17 +195,22 @@ func TestPackage(t *testing.T) {
 		t.Fatalf("Failed to get function service client: %v\n", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
+	// meta := metadata.New(map[string]string{"name": "test1"})
+	meta := metadata.Pairs("name", "test1")
 
+	// ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	// defer cancel()
+	ctx := metadata.NewOutgoingContext(context.Background(), meta)
+
+	fmt.Println("calling package")
 	stream, err := c.Package(ctx)
 	if err != nil {
 		t.Fatalf("Failed to invoke rpc Package: %v\n", err)
 	}
 
-	tFile, err := os.Open("testData/t1")
+	tFile, err := os.Open(testInput)
 	if err != nil {
-		t.Fatalf("Couldn't open test data 'testData/t1': %v", err)
+		t.Fatalf("Couldn't open test data %v: %v", testInput, err)
 	}
 	defer tFile.Close()
 
@@ -244,9 +225,35 @@ func TestPackage(t *testing.T) {
 	}
 }
 
+func initSandbox(newSandboxPath string) error {
+	var err error
+	// Clean and re-create the testing sandbox
+	if err = os.RemoveAll(newSandboxPath); err != nil {
+		errors.Wrap(err, "Failed to initialize tests")
+	}
+
+	cmd := exec.Command("cp", "-r", "testData/sandboxTemplate", newSandboxPath)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return errors.Wrapf(err, "Setting up sandbox returned error\n%v", out)
+	}
+
+	return nil
+}
+
 func TestMain(m *testing.M) {
+	var err error
+
 	// Set up the buffered connection to be used by all tests
 	listener = bufconn.Listen(bufConnSize)
+
+	if err = initSandbox(sandboxDir); err != nil {
+		fmt.Printf("Failed to initialize tests: %v\n", err)
+		os.Exit(1)
+	}
+	if err = os.Chdir(sandboxDir); err != nil {
+		fmt.Printf("Failed to initialize tests: %v\n", err)
+		os.Exit(1)
+	}
 
 	code := m.Run()
 	os.Exit(code)
