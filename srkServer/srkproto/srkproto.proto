@@ -12,13 +12,33 @@ service FunctionService {
     //                      with the function
     rpc Package(stream ByteTransfer) returns (PackageRet) {}
 
-    
+    // Install performs the srk.FaaS.Install operation (see package srk for details)
+    rpc Install(InstallArg) returns (InstallRet) {}    
+
+    // Invoke the function once and return the response
+    rpc Invoke(InvokeArg) returns (InvokeRet) {}
+
+    rpc Remove(RemoveArg) returns (RemoveRet) {}
 }
 
-// message RegisterArg {
-//     string name = 1;
-//     repeated string includes = 2;
-// }
+message InstallArg {
+    string name = 1;
+}
+
+message InvokeArg {
+    string name = 1;
+
+    // Function argument (json)
+    string farg = 2;
+}
+
+message InvokeRet {
+    bytes Body = 1;
+}
+
+message RemoveArg {
+    string name = 1;
+}
 
 // Used to send a stream of bytes
 message ByteTransfer {
@@ -27,4 +47,5 @@ message ByteTransfer {
 
 // Nothing to report for now, future versions may include something here
 message PackageRet {}
-// message RegisterRet {}
+message InstallRet {}
+message RemoveRet {}

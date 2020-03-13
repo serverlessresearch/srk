@@ -145,16 +145,24 @@ func bufDialer(string, time.Duration) (net.Conn, error) {
 	return listener.Dial()
 }
 
-func newFunctionServiceServer() (*grpc.Server, error) {
+// func newFunctionServiceServer() (*grpc.Server, error) {
+func newFunctionServiceServer() (func(), error) {
 	s := grpc.NewServer()
-	srkproto.RegisterFunctionServiceServer(s, &srkServer{mgr: getMgr()})
+	mgr := getMgr()
+	srkproto.RegisterFunctionServiceServer(s, &srkServer{mgr: mgr})
+
 	go func() {
 		if err := s.Serve(listener); err != nil {
 			log.Fatalf("Server exited with error: %v", err)
 		}
 	}()
 
-	return s, nil
+	cleanup := func() {
+		s.GracefulStop()
+		mgr.Destroy()
+	}
+
+	return cleanup, nil
 }
 
 func newFunctionServiceClient() (srkproto.FunctionServiceClient, error) {
@@ -182,7 +190,8 @@ func sendStream(sendStream srkproto.FunctionService_PackageClient, stream io.Rea
 }
 
 func packagePath(t *testing.T, meta *metadata.MD, c srkproto.FunctionServiceClient) {
-	ctx := metadata.NewOutgoingContext(context.Background(), *meta)
+	ctx, cancel := context.WithTimeout(metadata.NewOutgoingContext(context.Background(), *meta), time.Second)
+	defer cancel()
 
 	stream, err := c.Package(ctx)
 	if err != nil {
@@ -206,13 +215,46 @@ func packagePath(t *testing.T, meta *metadata.MD, c srkproto.FunctionServiceClie
 	}
 }
 
-func TestPackage(t *testing.T) {
+func installFunc(t *testing.T, c srkproto.FunctionServiceClient, name string) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	_, err := c.Install(ctx, &srkproto.InstallArg{Name: name})
+	if err != nil {
+		t.Fatalf("Failed to install function: %v\n", err)
+	}
+}
+
+func invokeFunc(t *testing.T, c srkproto.FunctionServiceClient, name string, arg string) []byte {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	resp, err := c.Invoke(ctx, &srkproto.InvokeArg{Name: name, Farg: arg})
+	if err != nil {
+		t.Fatalf("Failed to invoke function: %v\n", err)
+	}
+
+	return resp.Body
+}
+
+func removeFunc(t *testing.T, c srkproto.FunctionServiceClient, name string) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	_, err := c.Remove(ctx, &srkproto.RemoveArg{Name: name})
+	if err != nil {
+		t.Fatalf("Failed to remove function: %v\n", err)
+	}
+}
+
+func TestFaas(t *testing.T) {
 	// Create the server
-	s, err := newFunctionServiceServer()
+	cleanup, err := newFunctionServiceServer()
 	if err != nil {
 		t.Fatalf("Failed to create FunctionServiceServer: %v\n", err)
 	}
-	defer s.GracefulStop()
+	defer cleanup()
+	// defer s.GracefulStop()
 
 	// Create the client
 	c, err := newFunctionServiceClient()
@@ -228,6 +270,19 @@ func TestPackage(t *testing.T) {
 	// srk only has the one right now
 	meta = metadata.Pairs("name", "test2", "includes", "cfbench")
 	packagePath(t, &meta, c)
+
+	// Install to actual provider (this requires that you have a provider
+	// configured in testData/sandboxTemplate/srk.yaml)
+	installFunc(t, c, "test1")
+
+	msg := `{"hello": "world"}`
+	rawResp := invokeFunc(t, c, "test1", msg)
+	resp := string(rawResp)
+	if resp != msg {
+		t.Fatalf("Got unexpected response:\n\tExpected: %v\n\tGot: %v\n", msg, resp)
+	}
+
+	removeFunc(t, c, "test1")
 }
 
 func initSandbox(newSandboxPath string) error {

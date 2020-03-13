@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -83,7 +84,7 @@ func (s *srkServer) Package(chunks srkproto.FunctionService_PackageServer) error
 	if err != nil {
 		return err
 	}
-	// defer os.RemoveAll(tdir)
+	defer os.RemoveAll(tdir)
 
 	funcReader := &pbReader{chunks: chunks}
 	_, err = srk.UntarStream(funcReader, tdir)
@@ -106,6 +107,24 @@ func (s *srkServer) Package(chunks srkproto.FunctionService_PackageServer) error
 	s.mgr.Logger.Info("Package created at: " + pkgPath)
 
 	return nil
+}
+
+func (s *srkServer) Install(ctx context.Context, arg *srkproto.InstallArg) (*srkproto.InstallRet, error) {
+	rawDir := s.mgr.GetRawPath(arg.Name)
+	return &srkproto.InstallRet{}, s.mgr.Provider.Faas.Install(rawDir)
+}
+
+func (s *srkServer) Invoke(ctx context.Context, arg *srkproto.InvokeArg) (*srkproto.InvokeRet, error) {
+	r, err := s.mgr.Provider.Faas.Invoke(arg.Name, arg.Farg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &srkproto.InvokeRet{Body: r.Bytes()}, err
+}
+
+func (s *srkServer) Remove(ctx context.Context, arg *srkproto.RemoveArg) (*srkproto.RemoveRet, error) {
+	return &srkproto.RemoveRet{}, s.mgr.Provider.Faas.Remove(arg.Name)
 }
 
 // Creates a new srk manager (interface to SRK). Be sure to call mgr.Destroy()
