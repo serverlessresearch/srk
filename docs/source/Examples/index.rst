@@ -8,6 +8,7 @@ learn the system.
    :caption: Contents:
 
    GPU.rst
+   advanced.rst
 
 .. Indices and tables
 .. ==================
