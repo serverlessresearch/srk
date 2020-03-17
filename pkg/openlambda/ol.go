@@ -116,7 +116,7 @@ func (self *olConfig) ResetStats() error {
 
 func (self *olConfig) Package(rawDir string) (string, error) {
 	if !self.isLocal {
-		return "", errors.New("'Package' command is not supported in local mode")
+		return "", errors.New("'Package' command is only supported in local mode")
 	}
 	tarPath := filepath.Clean(rawDir) + ".tar.gz"
 	rerr := tarRaw(rawDir, tarPath)
@@ -128,7 +128,7 @@ func (self *olConfig) Package(rawDir string) (string, error) {
 
 func (self *olConfig) Install(rawDir string, env map[string]string, runtime string) error {
 	if !self.isLocal {
-		return errors.New("'Install' command is not supported in local mode")
+		return errors.New("'Install' command is only supported in local mode")
 	}
 	if env != nil {
 		return errors.New("support for environment vars is not implemented yet")
@@ -149,7 +149,7 @@ func (self *olConfig) Install(rawDir string, env map[string]string, runtime stri
 
 func (self *olConfig) Remove(fName string) error {
 	if !self.isLocal {
-		return errors.New("'Remove' command is not supported in local mode")
+		return errors.New("'Remove' command is only supported in local mode")
 	}
 
 	tarPath := filepath.Clean(fName) + ".tar.gz"
