@@ -39,7 +39,7 @@ func Example() {
 	}
 
 	// Upload the function to the provider
-	if err := mgr.Provider.Faas.Install(rawDir, nil, nil); err != nil {
+	if err := mgr.Provider.Faas.Install(rawDir, nil, ""); err != nil {
 		fmt.Printf("Installation failed: %v\n", err)
 		os.Exit(1)
 	}
