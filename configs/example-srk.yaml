@@ -36,6 +36,17 @@ service :
       # Optional vpc/security-group setup to use.
       # e.g.: "subnet-8910f2f5,sg-123456789abcdef"
       vpc-config : null
+      # Optional custom runtime and layer configuration
+      runtimes :
+        # example custom runtime definition
+        cffs-python :
+          # AWS runtime as base, use 'provided' for none
+          base : provided
+          # list of additional layers
+          layers :
+            - 'arn:aws:lambda:eu-central-1:669282166790:layer:runtime-python37:3'
+      # Optional default runtime if runtime is not provided by CLI
+      default-runtime : 'python3.7'
     lambciLambda:
       # path to scp command
       scp : '/usr/bin/scp'
@@ -50,11 +61,20 @@ service :
       # port of invoke API on the server
       port : 9001
       # path to docker env file
-      envFile : '/home/ubuntu/env'
+      env-file : '/home/ubuntu/env'
       # path to task on server
-      taskDir : '/home/ubuntu/task'
+      task-dir : '/home/ubuntu/task'
       # path to layer on server
-      layerDir : '/home/ubuntu/layer'
+      layer-dir : '/home/ubuntu/layer'
       # path to layer pool on server
-      layersDir : '/home/ubuntu/layers'
+      layers-dir : '/home/ubuntu/layers'
+      # runtime configuration
+      runtimes :
+        # example runtime definition
+        cffs-python :
+          # list of layers that make up the runtime
+          layers :
+            - 'runtime-python37-1'
+      # Optional default runtime if runtime is not provided by CLI
+      default-runtime : 'cffs-python'
     global:

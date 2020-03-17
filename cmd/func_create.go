@@ -16,7 +16,7 @@ var funcCreateCmdConfig struct {
 	files   string
 	name    string
 	env     string
-	layers  string
+	runtime string
 }
 
 var funcCreateCmd = &cobra.Command{
@@ -37,7 +37,7 @@ function package" and "srk function install".`,
 
 		includes := parseList(funcCreateCmdConfig.include)
 		files := parseList(funcCreateCmdConfig.files)
-		layers := parseList(funcCreateCmdConfig.layers)
+		runtime := funcCreateCmdConfig.runtime
 		rawDir := srkManager.GetRawFunctionPath(funcName)
 
 		if err := srkManager.CreateRawFunction(funcCreateCmdConfig.source, funcName, includes, files); err != nil {
@@ -51,7 +51,7 @@ function package" and "srk function install".`,
 		}
 		srkManager.Logger.Info("Created FaaS Package: " + pkgPath)
 
-		if err := srkManager.Provider.Faas.Install(rawDir, parseKeyValue(funcCreateCmdConfig.env), layers); err != nil {
+		if err := srkManager.Provider.Faas.Install(rawDir, parseKeyValue(funcCreateCmdConfig.env), runtime); err != nil {
 			return errors.Wrap(err, "Installation failed")
 		}
 		srkManager.Logger.Info("Successfully installed function")
@@ -67,9 +67,9 @@ func init() {
 	funcCreateCmd.Flags().StringVarP(&funcCreateCmdConfig.include, "include", "i", "", "what to include, e.g., bench")
 	funcCreateCmd.Flags().StringVarP(&funcCreateCmdConfig.files, "files", "f", "", "additional files to include")
 	funcCreateCmd.Flags().StringVarP(&funcCreateCmdConfig.env, "env", "e", "", "list of environment vars: var1=value1,var2=value2")
-	funcCreateCmd.Flags().StringVarP(&funcCreateCmdConfig.layers, "layers", "l", "", "list of additional layer ARNs")
+	funcCreateCmd.Flags().StringVarP(&funcCreateCmdConfig.runtime, "runtime", "r", "", "runtime to use for function execution")
 	// The actual default is derived from the source option, so we set it
 	// something that will be clear in the help output until we have all the
 	// options parsed
-	funcCreateCmd.Flags().StringVarP(&funcCreateCmdConfig.name, "function-name", "n", "source", "Optional name for this function, if different than the source name")
+	funcCreateCmd.Flags().StringVarP(&funcCreateCmdConfig.name, "function-name", "n", "source", "optional name for this function, if different than the source name")
 }

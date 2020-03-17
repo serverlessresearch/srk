@@ -21,30 +21,60 @@ import (
 	"github.com/spf13/viper"
 )
 
+type awsLambdaRuntime struct {
+	base   string
+	layers []string
+}
+
 type awsLambdaConfig struct {
 	// AWS arn role
 	role string
 	// see configs/srk.yaml for an example
-	vpcConfig string
-	region    string
-	session   *lambda.Lambda
-	log       srk.Logger
+	vpcConfig      string
+	region         string
+	runtimes       map[string]awsLambdaRuntime
+	defaultRuntime string
+	session        *lambda.Lambda
+	log            srk.Logger
 }
 
 func NewConfig(logger srk.Logger, config *viper.Viper) (srk.FunctionService, error) {
+
 	awsCfg := &awsLambdaConfig{
-		role:      config.GetString("role"),
-		vpcConfig: config.GetString("vpc-config"),
-		region:    config.GetString("region"),
-		session:   nil,
-		log:       logger,
+		role:           config.GetString("role"),
+		vpcConfig:      config.GetString("vpc-config"),
+		region:         config.GetString("region"),
+		runtimes:       make(map[string]awsLambdaRuntime),
+		defaultRuntime: config.GetString("default-runtime"),
+		session:        nil,
+		log:            logger,
 	}
+
+	for name, config := range config.GetStringMap("runtimes") {
+
+		runtimeConfig := config.(map[string]interface{})
+		baseConfig := runtimeConfig["base"].(string)
+		if baseConfig == "" {
+			baseConfig = "provided"
+		}
+		layerConfig := runtimeConfig["layers"].([]interface{})
+
+		awsCfg.runtimes[name] = awsLambdaRuntime{
+			base:   baseConfig,
+			layers: make([]string, len(layerConfig)),
+		}
+
+		for i := 0; i < len(layerConfig); i++ {
+			awsCfg.runtimes[name].layers[i] = layerConfig[i].(string)
+		}
+	}
+
 	return awsCfg, nil
 }
 
 func (self *awsLambdaConfig) ReportStats() (map[string]float64, error) {
-	stats := make(map[string]float64)
 
+	stats := make(map[string]float64)
 	return stats, nil
 }
 
@@ -64,6 +94,7 @@ func (self *awsLambdaConfig) Session() *lambda.Lambda {
 }
 
 func (self *awsLambdaConfig) Package(rawDir string) (zipDir string, rerr error) {
+
 	zipPath := filepath.Clean(rawDir) + ".zip"
 	rerr = zipRaw(rawDir, zipPath)
 	if rerr != nil {
@@ -72,9 +103,10 @@ func (self *awsLambdaConfig) Package(rawDir string) (zipDir string, rerr error) 
 	return zipPath, nil
 }
 
-func (self *awsLambdaConfig) Install(rawDir string, env map[string]string, layers []string) (rerr error) {
+func (self *awsLambdaConfig) Install(rawDir string, env map[string]string, runtime string) (rerr error) {
+
 	zipPath := filepath.Clean(rawDir) + ".zip"
-	return self.awsInstall(zipPath, env, layers)
+	return self.awsInstall(zipPath, env, runtime)
 }
 
 func (self *awsLambdaConfig) Remove(fName string) error {
@@ -84,111 +116,6 @@ func (self *awsLambdaConfig) Remove(fName string) error {
 		return decodeAwsError(err)
 	}
 	return nil
-}
-
-// Install a layer to the desired FaaS service. It is assumed that
-// Package() has already been called on this rawDir. The name of rawDir is
-// also the name of the layer.
-// Returns: ARN of the installed layer
-func (self *awsLambdaConfig) InstallLayer(rawDir string, compatibleRuntimes []string) (layerId string, rerr error) {
-
-	zipPath := filepath.Clean(rawDir) + ".zip"
-	zipData, err := ioutil.ReadFile(zipPath)
-	if err != nil {
-		return "", errors.Wrap(err, "Failed to read the zip file we just created")
-	}
-
-	layerName := strings.TrimSuffix(filepath.Base(zipPath), ".zip")
-	input := &lambda.PublishLayerVersionInput{
-		LayerName:          aws.String(layerName),
-		Content:            &lambda.LayerVersionContentInput{ZipFile: zipData},
-		CompatibleRuntimes: aws.StringSlice(compatibleRuntimes),
-	}
-
-	self.log.Info("Uploading layer: " + layerName)
-	output, err := self.Session().PublishLayerVersion(input)
-	if err != nil {
-		return "", decodeAwsError(err)
-	}
-
-	return *output.LayerVersionArn, nil
-}
-
-// Removes a layer from the service. Does not affect packages.
-func (self *awsLambdaConfig) RemoveLayer(name string) (rerr error) {
-
-	layerVersions, err := self.layerVersionsByName(name)
-	if err != nil {
-		return err
-	}
-
-	for _, layerVersion := range layerVersions {
-
-		layerVersionARN := strings.Split(*layerVersion.LayerVersionArn, ":")
-		layerARN := strings.Join(layerVersionARN[:len(layerVersionARN)-1], ":")
-
-		input := &lambda.DeleteLayerVersionInput{
-			LayerName:     aws.String(layerARN),
-			VersionNumber: layerVersion.Version,
-		}
-
-		_, err := self.Session().DeleteLayerVersion(input)
-		if err != nil {
-			return decodeAwsError(err)
-		}
-	}
-
-	return nil
-}
-
-func (self *awsLambdaConfig) layerVersionsByName(name string) ([]*lambda.LayerVersionsListItem, error) {
-
-	var marker, layerARN *string
-
-	for {
-		output, err := self.Session().ListLayers(&lambda.ListLayersInput{Marker: marker})
-		if err != nil {
-			return nil, decodeAwsError(err)
-		}
-		for _, layer := range output.Layers {
-			if *layer.LayerName == name {
-				layerARN = layer.LayerArn
-				break
-			}
-		}
-		if output.NextMarker == nil {
-			break
-		}
-		marker = output.NextMarker
-	}
-
-	if layerARN == nil {
-		return nil, nil
-	}
-
-	versions := make([]*lambda.LayerVersionsListItem, 0)
-
-	marker = nil
-	for {
-		input := &lambda.ListLayerVersionsInput{
-			LayerName: layerARN,
-			Marker:    marker,
-		}
-
-		output, err := self.Session().ListLayerVersions(input)
-		if err != nil {
-			return nil, decodeAwsError(err)
-		}
-
-		versions = append(versions, output.LayerVersions...)
-
-		if output.NextMarker == nil {
-			break
-		}
-		marker = output.NextMarker
-	}
-
-	return versions, nil
 }
 
 func (self *awsLambdaConfig) Destroy() {
@@ -219,7 +146,14 @@ func (self *awsLambdaConfig) Invoke(fName string, args string) (resp *bytes.Buff
 	return resp, nil
 }
 
-func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, layers []string) (rerr error) {
+func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, runtime string) (rerr error) {
+
+	if runtime == "" {
+		if self.defaultRuntime == "" {
+			return errors.New("runtime needs to be specified or configured via config")
+		}
+		runtime = self.defaultRuntime
+	}
 
 	funcName := strings.TrimSuffix(filepath.Base(zipPath), ".zip")
 
@@ -234,9 +168,14 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, l
 		awsEnv = &lambda.Environment{Variables: vars}
 	}
 
-	var awsLayers []*string
-	if layers != nil {
-		awsLayers = aws.StringSlice(layers)
+	awsLayers := []*string{}
+	if runtimeConfig, exists := self.runtimes[runtime]; exists {
+		if runtimeConfig.layers != nil {
+			awsLayers = aws.StringSlice(runtimeConfig.layers)
+		}
+		if runtimeConfig.base != "" {
+			runtime = runtimeConfig.base
+		}
 	}
 
 	var result *lambda.FunctionConfiguration
@@ -249,7 +188,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, l
 		if awsEnv != nil {
 			request := &lambda.UpdateFunctionConfigurationInput{
 				FunctionName: aws.String(funcName),
-				Runtime:      aws.String("provided"),
+				Runtime:      aws.String(runtime),
 				Environment:  awsEnv,
 				Layers:       awsLayers,
 			}
@@ -284,7 +223,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, l
 			// TODO do we want to publish?
 			// Publish:      aws.Bool(true),
 			Role:        aws.String(self.role),
-			Runtime:     aws.String("provided"),
+			Runtime:     aws.String(runtime),
 			Timeout:     aws.Int64(15),
 			Environment: awsEnv,
 			Layers:      awsLayers,

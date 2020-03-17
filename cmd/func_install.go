@@ -8,9 +8,9 @@ import (
 )
 
 var funcInstallCmdConfig struct {
-	name   string
-	env    string
-	layers string
+	name    string
+	env     string
+	runtime string
 }
 
 // funcInstallCmd represents the install command
@@ -20,10 +20,10 @@ var funcInstallCmd = &cobra.Command{
 	Long:  `Install a function to the FaaS service. It is assumed that you have already packaged this function (using the 'package' command).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		layers := parseList(funcInstallCmdConfig.layers)
+		runtime := funcInstallCmdConfig.runtime
 		rawDir := srkManager.GetRawFunctionPath(funcInstallCmdConfig.name)
 
-		if err := srkManager.Provider.Faas.Install(rawDir, parseKeyValue(funcInstallCmdConfig.env), layers); err != nil {
+		if err := srkManager.Provider.Faas.Install(rawDir, parseKeyValue(funcInstallCmdConfig.env), runtime); err != nil {
 			return errors.Wrap(err, "Installation failed")
 		}
 		srkManager.Logger.Info("Successfully installed function")
@@ -36,5 +36,5 @@ func init() {
 
 	funcInstallCmd.Flags().StringVarP(&funcInstallCmdConfig.name, "function-name", "n", "", "The function to install")
 	funcInstallCmd.Flags().StringVarP(&funcInstallCmdConfig.env, "env", "e", "", "list of environment vars: var1=value1,var2=value2")
-	funcInstallCmd.Flags().StringVarP(&funcInstallCmdConfig.layers, "layers", "l", "", "list of additional layer ARNs")
+	funcInstallCmd.Flags().StringVarP(&funcInstallCmdConfig.runtime, "runtime", "r", "", "runtime to use for function execution")
 }

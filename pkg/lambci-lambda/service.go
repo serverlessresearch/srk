@@ -3,9 +3,7 @@ package lambcilambda
 import (
 	"bytes"
 	"fmt"
-	"path"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/serverlessresearch/srk/pkg/command"
@@ -22,36 +20,54 @@ const (
 )
 
 type lambciLambda struct {
-	scp       string // path to scp command
-	ssh       string // path to ssh command
-	host      string // IP or hostname of server running the lambci/lambda docker image
-	user      string // user for scp + ssh
-	pem       string // key file for scp + ssh
-	port      int    // port of the invoke API on server
-	envFile   string // path to docker env file on server
-	taskDir   string // path to task on server
-	layerDir  string // path to layer on server
-	layersDir string // path to layer pool on server
-	session   *lambda.Lambda
-	log       srk.Logger
+	scp            string              // path to scp command
+	ssh            string              // path to ssh command
+	host           string              // IP or hostname of server running the lambci/lambda docker image
+	user           string              // user for scp + ssh
+	pem            string              // key file for scp + ssh
+	port           int                 // port of the invoke API on server
+	envFile        string              // path to docker env file on server
+	taskDir        string              // path to task on server
+	layerDir       string              // path to layer on server
+	layersDir      string              // path to layer pool on server
+	runtimes       map[string][]string // runtime configuration
+	defaultRuntime string
+	session        *lambda.Lambda
+	log            srk.Logger
 }
 
 func NewFunctionService(logger srk.Logger, config *viper.Viper) (*lambciLambda, error) {
 
 	service := &lambciLambda{
-		scp:       config.GetString("scp"),
-		ssh:       config.GetString("ssh"),
-		host:      config.GetString("host"),
-		user:      config.GetString("user"),
-		pem:       config.GetString("pem"),
-		port:      config.GetInt("port"),
-		envFile:   config.GetString("envFile"),
-		taskDir:   config.GetString("taskDir"),
-		layerDir:  config.GetString("layerDir"),
-		layersDir: config.GetString("layersDir"),
-		session:   nil,
-		log:       logger,
+		scp:            config.GetString("scp"),
+		ssh:            config.GetString("ssh"),
+		host:           config.GetString("host"),
+		user:           config.GetString("user"),
+		pem:            config.GetString("pem"),
+		port:           config.GetInt("port"),
+		envFile:        config.GetString("env-file"),
+		taskDir:        config.GetString("task-dir"),
+		layerDir:       config.GetString("layer-dir"),
+		layersDir:      config.GetString("layers-dir"),
+		runtimes:       make(map[string][]string),
+		defaultRuntime: config.GetString("default-runtime"),
+		session:        nil,
+		log:            logger,
 	}
+
+	for name, config := range config.GetStringMap("runtimes") {
+
+		runtimeConfig := config.(map[string]interface{})
+		layerConfig := runtimeConfig["layers"].([]interface{})
+
+		layers := make([]string, len(layerConfig))
+		for i := 0; i < len(layerConfig); i++ {
+			layers[i] = layerConfig[i].(string)
+		}
+
+		service.runtimes[name] = layers
+	}
+
 	return service, nil
 }
 
@@ -69,7 +85,18 @@ func (service *lambciLambda) Package(rawDir string) (string, error) {
 // Install a function to the desired FaaS service. It is assumed that
 // Package() has already been called on this rawDir. The name of rawDir is
 // also the name of the function.
-func (service *lambciLambda) Install(rawDir string, env map[string]string, layers []string) error {
+func (service *lambciLambda) Install(rawDir string, env map[string]string, runtime string) error {
+
+	if runtime == "" {
+		if service.defaultRuntime == "" {
+			return errors.New("runtime needs to be specified or configured via config")
+		}
+		runtime = service.defaultRuntime
+	}
+
+	if _, exists := service.runtimes[runtime]; !exists {
+		return errors.Errorf("runtime '%s' does not exist in configuration", runtime)
+	}
 
 	// remove old layer
 	_, err := service.Ssh(fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec rm -r {} +", service.layerDir))
@@ -78,7 +105,7 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, layer
 	}
 
 	// install new layer
-	for _, layer := range layers {
+	for _, layer := range service.runtimes[runtime] {
 		_, err := service.Ssh(fmt.Sprintf("cp -r %s %s", filepath.Join(service.layersDir, layer, "*"), service.layerDir))
 		if err != nil {
 			return errors.Wrapf(err, "error installing layer '%s'", layer)
@@ -136,41 +163,6 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, layer
 
 // Removes a function from the service. Does not affect packages.
 func (service *lambciLambda) Remove(fName string) error {
-
-	return nil
-}
-
-// Install a layer to the desired FaaS service. It is assumed that
-// Package() has already been called on this rawDir. The name of rawDir is
-// also the name of the layer.
-// Returns: Id of the installed layer
-func (service *lambciLambda) InstallLayer(rawDir string, compatibleRuntimes []string) (string, error) {
-
-	// determine next version number
-	layerName := path.Base(rawDir)
-	layers, err := service.Ssh(fmt.Sprintf("find %s -maxdepth 1 -name \"%s*\" -type d", service.layersDir, layerName))
-	if err != nil {
-		return "", errors.Wrap(err, "error parsing existing layers")
-	}
-
-	// install new layer
-	version := NextLayerVersion(strings.Split(layers, "\n"))
-	layerId := fmt.Sprintf("%s-%d", layerName, version)
-	_, err = service.Scp(rawDir, filepath.Join(service.layersDir, layerId))
-	if err != nil {
-		return "", errors.Wrapf(err, "error installing layer '%s'", layerId)
-	}
-
-	return layerId, nil
-}
-
-// Removes a layer from the service. Does not affect packages.
-func (service *lambciLambda) RemoveLayer(name string) error {
-
-	_, err := service.Ssh(fmt.Sprintf("find %s -maxdepth 1 -name \"%s*\" -type d -exec rm -r {} +", service.layersDir, name))
-	if err != nil {
-		return errors.Wrapf(err, "error removing layer '%s'", name)
-	}
 
 	return nil
 }

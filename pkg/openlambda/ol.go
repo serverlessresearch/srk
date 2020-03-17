@@ -126,15 +126,15 @@ func (self *olConfig) Package(rawDir string) (string, error) {
 	return tarPath, nil
 }
 
-func (self *olConfig) Install(rawDir string, env map[string]string, layers []string) error {
+func (self *olConfig) Install(rawDir string, env map[string]string, runtime string) error {
 	if !self.isLocal {
 		return errors.New("'Install' command is not supported in local mode")
 	}
 	if env != nil {
 		return errors.New("support for environment vars is not implemented yet")
 	}
-	if layers != nil {
-		return errors.New("support for layers is not implemented yet")
+	if runtime != "" {
+		return errors.New("support for runtime is not implemented yet")
 	}
 
 	tarPath := filepath.Clean(rawDir) + ".tar.gz"
@@ -160,16 +160,6 @@ func (self *olConfig) Remove(fName string) error {
 	}
 	self.log.Info("Open Lambda function removed")
 	return nil
-}
-
-func (self *olConfig) InstallLayer(rawDir string, compatibleRuntimes []string) (layerId string, rerr error) {
-
-	return "", errors.New("support for layers is not implemented yet")
-}
-
-func (self *olConfig) RemoveLayer(name string) (rerr error) {
-
-	return errors.New("support for layers is not implemented yet")
 }
 
 func (self *olConfig) Destroy() {
