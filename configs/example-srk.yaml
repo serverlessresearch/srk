@@ -48,25 +48,28 @@ service :
       # Optional default runtime if runtime is not provided by CLI
       default-runtime : 'python3.7'
     lambciLambda:
-      # path to scp command
-      scp : '/usr/bin/scp'
-      # path to ssh command
-      ssh : '/usr/bin/ssh'
-      # IP or hostname of server running the lambci/lambda docker image
-      host : 'ec2-client'
-      # user for scp + ssh
-      user : 'ubuntu'
-      # key file for scp + ssh
-      pem : '~/.aws/AWS.pem'
-      # port of invoke API on the server
-      port : 9001
+      # optional remote configuration
+      # if set the path values below are bound to the specified host
+      remote:
+        # path to scp command
+        scp : '/usr/bin/scp'
+        # path to ssh command
+        ssh : '/usr/bin/ssh'
+        # IP or hostname of server running the lambci/lambda docker image
+        host : 'ec2-instance'
+        # user for scp + ssh
+        user : 'ubuntu'
+        # key file for scp + ssh
+        pem : '~/.aws/AWS.pem'
+      # address of lambci server API
+      address : 'localhost:9001'
       # path to docker env file
       env-file : '/home/ubuntu/env'
-      # path to task on server
+      # path to task directory
       task-dir : '/home/ubuntu/task'
-      # path to layer on server
-      layer-dir : '/home/ubuntu/layer'
-      # path to layer pool on server
+      # path to runtime directory
+      runtime-dir : '/home/ubuntu/runtime'
+      # path to layer pool directory
       layers-dir : '/home/ubuntu/layers'
       # runtime configuration
       runtimes :
@@ -75,6 +78,6 @@ service :
           # list of layers that make up the runtime
           layers :
             - 'runtime-python37-1'
-      # Optional default runtime if runtime is not provided by CLI
+      # optional default runtime if runtime is not provided by CLI
       default-runtime : 'cffs-python'
     global:

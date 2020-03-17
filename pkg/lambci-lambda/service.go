@@ -19,17 +19,21 @@ const (
 	maxChecks  = 10
 )
 
+type lambciRemote struct {
+	scp  string // path to scp command
+	ssh  string // path to ssh command
+	host string // IP or hostname of server running the lambci/lambda docker image
+	user string // user for scp + ssh
+	pem  string // key file for scp + ssh
+}
+
 type lambciLambda struct {
-	scp            string              // path to scp command
-	ssh            string              // path to ssh command
-	host           string              // IP or hostname of server running the lambci/lambda docker image
-	user           string              // user for scp + ssh
-	pem            string              // key file for scp + ssh
-	port           int                 // port of the invoke API on server
-	envFile        string              // path to docker env file on server
-	taskDir        string              // path to task on server
-	layerDir       string              // path to layer on server
-	layersDir      string              // path to layer pool on server
+	remote         *lambciRemote       // optional remote configuration
+	address        string              // address of lambci server API
+	envFile        string              // path to docker env file
+	taskDir        string              // path to task directory
+	runtimeDir     string              // path to runtime directory
+	layersDir      string              // path to layer pool directory
 	runtimes       map[string][]string // runtime configuration
 	defaultRuntime string
 	session        *lambda.Lambda
@@ -38,21 +42,42 @@ type lambciLambda struct {
 
 func NewFunctionService(logger srk.Logger, config *viper.Viper) (*lambciLambda, error) {
 
+	var remote *lambciRemote
+	if config.IsSet("remote") {
+		remote = &lambciRemote{
+			scp:  config.GetString("remote.scp"),
+			ssh:  config.GetString("remote.ssh"),
+			host: config.GetString("remote.host"),
+			user: config.GetString("remote.user"),
+			pem:  config.GetString("remote.pem"),
+		}
+	}
+
 	service := &lambciLambda{
-		scp:            config.GetString("scp"),
-		ssh:            config.GetString("ssh"),
-		host:           config.GetString("host"),
-		user:           config.GetString("user"),
-		pem:            config.GetString("pem"),
-		port:           config.GetInt("port"),
+		remote:         remote,
+		address:        config.GetString("address"),
 		envFile:        config.GetString("env-file"),
 		taskDir:        config.GetString("task-dir"),
-		layerDir:       config.GetString("layer-dir"),
+		runtimeDir:     config.GetString("runtime-dir"),
 		layersDir:      config.GetString("layers-dir"),
 		runtimes:       make(map[string][]string),
 		defaultRuntime: config.GetString("default-runtime"),
 		session:        nil,
 		log:            logger,
+	}
+
+	// not setting these values can have a bad outcome for the filesystem
+	if service.envFile == "" {
+		return nil, errors.New("configuration setting 'env-file' is required")
+	}
+	if service.taskDir == "" {
+		return nil, errors.New("configuration setting 'task-dir' is required")
+	}
+	if service.runtimeDir == "" {
+		return nil, errors.New("configuration setting 'runtime-dir' is required")
+	}
+	if service.layersDir == "" {
+		return nil, errors.New("configuration setting 'layers-dir' is required")
 	}
 
 	for name, config := range config.GetStringMap("runtimes") {
@@ -99,39 +124,39 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, runti
 	}
 
 	// remove old layer
-	_, err := service.Ssh(fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec rm -r {} +", service.layerDir))
+	_, err := service.Exec(fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec rm -r {} +", service.runtimeDir))
 	if err != nil {
 		return errors.Wrap(err, "error removing old layer")
 	}
 
 	// install new layer
 	for _, layer := range service.runtimes[runtime] {
-		_, err := service.Ssh(fmt.Sprintf("cp -r %s %s", filepath.Join(service.layersDir, layer, "*"), service.layerDir))
+		_, err := service.Exec(fmt.Sprintf("cp -r %s %s", filepath.Join(service.layersDir, layer, "*"), service.runtimeDir))
 		if err != nil {
 			return errors.Wrapf(err, "error installing layer '%s'", layer)
 		}
 	}
 
 	// remove old task
-	_, err = service.Ssh(fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec rm -r {} +", service.taskDir))
+	_, err = service.Exec(fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec rm -r {} +", service.taskDir))
 	if err != nil {
 		return errors.Wrap(err, "error removing old task")
 	}
 
 	// install new task
-	_, err = service.Scp(filepath.Join(rawDir, "*"), service.taskDir)
+	_, err = service.Copy(filepath.Join(rawDir, "*"), service.taskDir)
 	if err != nil {
 		return errors.Wrap(err, "error installing function")
 	}
 
 	// retrieve process id of running lambda docker image
-	pid, err := service.Ssh("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | awk \"{print $1}\"")
+	pid, err := service.Exec("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | awk \"{print $1}\"")
 	if err != nil {
 		return errors.Wrap(err, "error retrieving lambda process id")
 	}
 
 	// install new env map - this triggers the lambda function reload
-	_, err = service.Ssh(fmt.Sprintf("echo -n \"%s\" > %s", Map2Lines(env), service.envFile))
+	_, err = service.Exec(fmt.Sprintf("echo -n \"%s\" > %s", Map2Lines(env), service.envFile))
 	if err != nil {
 		return errors.Wrap(err, "error updating environment")
 	}
@@ -143,7 +168,7 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, runti
 		for {
 			time.Sleep(checkDelay)
 
-			newPid, err := service.Ssh("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | awk \"{print $1}\"")
+			newPid, err := service.Exec("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | awk \"{print $1}\"")
 			if err != nil {
 				return errors.Wrap(err, "error retrieving lambda process id")
 			}
@@ -175,7 +200,7 @@ func (service *lambciLambda) Remove(fName string) error {
 // valid response was received)
 func (service *lambciLambda) Invoke(fName string, args string) (*bytes.Buffer, error) {
 
-	url := fmt.Sprintf("http://%s:%d/2015-03-31/functions/%s/invocations", service.host, service.port, fName)
+	url := fmt.Sprintf("http://%s/2015-03-31/functions/%s/invocations", service.address, fName)
 	return HttpPost(url, args)
 }
 
@@ -201,12 +226,20 @@ func (service *lambciLambda) ResetStats() error {
 	return nil
 }
 
-func (service *lambciLambda) Ssh(cmd string) (string, error) {
+func (service *lambciLambda) Exec(cmd string) (string, error) {
 
-	return command.Ssh(service.ssh, service.user, service.host, service.pem, fmt.Sprintf("'%s'", cmd))
+	if service.remote != nil {
+		return command.Ssh(service.remote.ssh, service.remote.user, service.remote.host, service.remote.pem, cmd)
+	} else {
+		return command.Sh(cmd)
+	}
 }
 
-func (service *lambciLambda) Scp(src, dst string) (string, error) {
+func (service *lambciLambda) Copy(src, dst string) (string, error) {
 
-	return command.Scp(service.scp, service.user, service.host, service.pem, src, dst)
+	if service.remote != nil {
+		return command.Scp(service.remote.scp, service.remote.user, service.remote.host, service.remote.pem, src, dst)
+	} else {
+		return command.Cp(src, dst)
+	}
 }

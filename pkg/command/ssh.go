@@ -12,6 +12,6 @@ func Scp(exe, username, hostname, pem, src, dst string) (string, error) {
 
 func Ssh(exe, username, hostname, pem, command string) (string, error) {
 
-	cmd := fmt.Sprintf("%s -i %s %s@%s %s", exe, pem, username, hostname, command)
+	cmd := fmt.Sprintf("%s -i %s %s@%s '%s'", exe, pem, username, hostname, command)
 	return RunSimple(Shell, Exec, cmd)
 }
