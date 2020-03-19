@@ -4,8 +4,8 @@
 Advanced Function Setup
 ===============================================================================
 
-This example shows how to setup a function using environment variables and
-layers.
+This example shows how to setup a function using additional files, environment
+variables and a configurable runtime.
 
 *******************************************************************************
 Adding Additional Files

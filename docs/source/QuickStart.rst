@@ -120,6 +120,30 @@ specific use-case, you can leave this as null (for more information, see the `AW
 documentation
 <https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc.html>`_).
 
+LambCI lambda
+=================
+The LambCI project provides a `docker image <https://hub.docker.com/r/lambci/lambda>`_
+resembling AWS lambda which can be used as a function-as-a-service provider for
+the SRK. The configuration needs at least the path to the lambci work directory
+and the address of the function invocation API server.
+
+::
+
+  faas :
+    lambciLambda:
+      # path to the lambci directory - the following sub directories will be used:
+      # * env     environment file for lambci docker container
+      # * task    directory of lambda function, /var/task in container
+      # * runtime directory of the lambda runtime, /opt in container
+      # * layers  directory of layer pool with each layer a sub directory
+      directory : '~/lambci'
+      # address of lambci server API
+      address : 'localhost:9001'
+
+See the :ref:`example_lambci` for detailed instructions how to
+set up the lambda container.
+
+
 Setting the current provider
 =================================
 Now that we have both AWS Lambda and OpenLambda configured, we can switch
@@ -158,7 +182,7 @@ displays the response:
 
 ::
 
-   $ ./srk bench --bench one-shot --function-args '{"hello" : "world"}' --function-name echo
+   $ ./srk bench --benchmark one-shot --function-args '{"hello" : "world"}' --function-name echo
 
 You should see {"hello" : "world"} printed on your screen. Try passing
 different arguments, your function should simply return whatever you pass it.
@@ -171,7 +195,7 @@ Next Steps
 *******************
 You may new begin experimenting with different functions. Make some
 modifications to ``echo.py`` or write your own new function. You will need to
-run ``./srk create ...`` again to upload the new function. Once you are
+run ``./srk function create ...`` again to upload the new function. Once you are
 comfortable with the behavior of your function, head over to our `GoDoc Pages
 <https://godoc.org/github.com/serverlessresearch/srk/pkg/srkmgr>`_ to learn
 how to write more advanced benchmarks using the programmatic interface to SRK.

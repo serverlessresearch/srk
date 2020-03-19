@@ -7,8 +7,9 @@ learn the system.
    :maxdepth: 2
    :caption: Contents:
 
-   GPU.rst
    advanced.rst
+   lambci.rst
+   GPU.rst
 
 .. Indices and tables
 .. ==================

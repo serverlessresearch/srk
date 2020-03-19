@@ -64,11 +64,12 @@ service :
       # address of lambci server API
       address : 'localhost:9001'
       # path to the lambci directory - the following sub directories will be used:
-      # * env     environment file for lambci docker container
       # * task    directory of lambda function
       # * runtime directory of the lambda runtime
       # * layers  directory of layer pool with each layer a sub directory
+      # * env     environment file for lambci docker container
       directory : '~/lambci'
+      # runtime configuration
       runtimes :
         # example runtime definition
         cffs-python :
