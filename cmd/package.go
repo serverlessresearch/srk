@@ -9,15 +9,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var funcPackageCmdConfig struct {
+var packageCmdConfig struct {
 	source  string
 	include string
 	files   string
 	name    string
 }
 
-// funcPackageCmd represents the package command
-var funcPackageCmd = &cobra.Command{
+// packageCmd represents the package command
+var packageCmd = &cobra.Command{
 	Use:   "package",
 	Short: "Package creates all the files needed to install a function, but does not actually install it.",
 	Long: `Each FaaS service provider has their own format and requirements on
@@ -26,15 +26,15 @@ a code package. Typically, these take the form of an archive (e.g. .tgz or
 can manually inspect or modify it.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		if funcPackageCmdConfig.name == "source" {
-			funcPackageCmdConfig.name = strings.TrimSuffix(path.Base(funcPackageCmdConfig.source), path.Ext(funcPackageCmdConfig.source))
+		if packageCmdConfig.name == "source" {
+			packageCmdConfig.name = strings.TrimSuffix(path.Base(packageCmdConfig.source), path.Ext(packageCmdConfig.source))
 		}
 
-		includes := parseList(funcPackageCmdConfig.include)
-		files := parseList(funcPackageCmdConfig.files)
-		rawDir := srkManager.GetRawFunctionPath(funcPackageCmdConfig.name)
+		includes := parseList(packageCmdConfig.include)
+		files := parseList(packageCmdConfig.files)
+		rawDir := srkManager.GetRawPath(packageCmdConfig.name)
 
-		if err := srkManager.CreateRawFunction(funcPackageCmdConfig.source, funcPackageCmdConfig.name, includes, files); err != nil {
+		if err := srkManager.CreateRaw(packageCmdConfig.source, packageCmdConfig.name, includes, files); err != nil {
 			return errors.Wrap(err, "Packaging function failed")
 		}
 		srkManager.Logger.Info("Created raw function: " + rawDir)
@@ -49,14 +49,14 @@ can manually inspect or modify it.`,
 }
 
 func init() {
-	functionCmd.AddCommand(funcPackageCmd)
+	functionCmd.AddCommand(packageCmd)
 
 	// Define the command line arguments for this subcommand
-	funcPackageCmd.Flags().StringVarP(&funcPackageCmdConfig.source, "source", "s", "", "source directory or file")
-	funcPackageCmd.Flags().StringVarP(&funcPackageCmdConfig.include, "include", "i", "", "SRK-provided libraries to include")
-	funcPackageCmd.Flags().StringVarP(&funcPackageCmdConfig.files, "files", "f", "", "additional files to include")
+	packageCmd.Flags().StringVarP(&packageCmdConfig.source, "source", "s", "", "source directory or file")
+	packageCmd.Flags().StringVarP(&packageCmdConfig.include, "include", "i", "", "SRK-provided libraries to include")
+	packageCmd.Flags().StringVarP(&packageCmdConfig.files, "files", "f", "", "additional files to include")
 	// The actual default is derived from the source option, so we set it
 	// something that will be clear in the help output until we have all the
 	// options parsed
-	funcPackageCmd.Flags().StringVarP(&funcPackageCmdConfig.name, "function-name", "n", "source", "Optional name for this function, if different than the source name")
+	packageCmd.Flags().StringVarP(&packageCmdConfig.name, "function-name", "n", "source", "optional name for this function, if different than the source name")
 }

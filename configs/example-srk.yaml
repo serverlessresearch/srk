@@ -5,7 +5,7 @@ default-provider : "aws"
 # provider will have one implementation of each service category (although it
 # is possible to omit service categories of they are not needed)
 providers :
-  ec2 :
+  lambci :
     faas : "lambciLambda"
   aws :
     faas : "awsLambda"
@@ -63,15 +63,12 @@ service :
         pem : '~/.aws/AWS.pem'
       # address of lambci server API
       address : 'localhost:9001'
-      # path to docker env file
-      env-file : '/home/ubuntu/env'
-      # path to task directory
-      task-dir : '/home/ubuntu/task'
-      # path to runtime directory
-      runtime-dir : '/home/ubuntu/runtime'
-      # path to layer pool directory
-      layers-dir : '/home/ubuntu/layers'
-      # runtime configuration
+      # path to the lambci directory - the following sub directories will be used:
+      # * env     environment file for lambci docker container
+      # * task    directory of lambda function
+      # * runtime directory of the lambda runtime
+      # * layers  directory of layer pool with each layer a sub directory
+      directory : '~/lambci'
       runtimes :
         # example runtime definition
         cffs-python :

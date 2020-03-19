@@ -6,15 +6,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var funcRemoveName string
+var removeName string
 
-// funcRemoveCmd represents the remove command
-var funcRemoveCmd = &cobra.Command{
+// removeCmd represents the remove command
+var removeCmd = &cobra.Command{
 	Use:   "remove",
 	Short: "Uninstall (remove) a function from the service provider.",
 	Long:  `Remove will delete a function from the configured provider so that is no longer visible or using resources. If you have installed the function to multiple services, you will need to call "remove" on each service separately. Remove is the inverse of "install", it does not affect packages.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := srkManager.Provider.Faas.Remove(funcRemoveName); err != nil {
+		if err := srkManager.Provider.Faas.Remove(removeName); err != nil {
 			return errors.Wrap(err, "Function removal failed")
 		}
 
@@ -24,8 +24,8 @@ var funcRemoveCmd = &cobra.Command{
 }
 
 func init() {
-	functionCmd.AddCommand(funcRemoveCmd)
+	functionCmd.AddCommand(removeCmd)
 
-	funcRemoveCmd.Flags().StringVarP(&funcRemoveName, "function-name", "n", "", "The function to remove")
-	funcRemoveCmd.MarkFlagRequired("function-name")
+	removeCmd.Flags().StringVarP(&removeName, "function-name", "n", "", "The function to remove")
+	removeCmd.MarkFlagRequired("function-name")
 }

@@ -17,6 +17,10 @@ import (
 const (
 	checkDelay = 100 * time.Millisecond
 	maxChecks  = 10
+	envFile    = "env"
+	taskDir    = "task"
+	runtimeDir = "runtime"
+	layersDir  = "layers"
 )
 
 type lambciRemote struct {
@@ -30,10 +34,7 @@ type lambciRemote struct {
 type lambciLambda struct {
 	remote         *lambciRemote       // optional remote configuration
 	address        string              // address of lambci server API
-	envFile        string              // path to docker env file
-	taskDir        string              // path to task directory
-	runtimeDir     string              // path to runtime directory
-	layersDir      string              // path to layer pool directory
+	homeDir        string              // root directory of lambci files
 	runtimes       map[string][]string // runtime configuration
 	defaultRuntime string
 	session        *lambda.Lambda
@@ -56,28 +57,29 @@ func NewFunctionService(logger srk.Logger, config *viper.Viper) (*lambciLambda, 
 	service := &lambciLambda{
 		remote:         remote,
 		address:        config.GetString("address"),
-		envFile:        config.GetString("env-file"),
-		taskDir:        config.GetString("task-dir"),
-		runtimeDir:     config.GetString("runtime-dir"),
-		layersDir:      config.GetString("layers-dir"),
+		homeDir:        config.GetString("directory"),
 		runtimes:       make(map[string][]string),
 		defaultRuntime: config.GetString("default-runtime"),
 		session:        nil,
 		log:            logger,
 	}
 
-	// not setting these values can have a bad outcome for the filesystem
-	if service.envFile == "" {
-		return nil, errors.New("configuration setting 'env-file' is required")
+	// not setting this value can have a bad outcome for the filesystem
+	if service.homeDir == "" {
+		return nil, errors.New("configuration setting 'directory' is required")
 	}
-	if service.taskDir == "" {
-		return nil, errors.New("configuration setting 'task-dir' is required")
+
+	_, err := service.Exec(fmt.Sprintf("mkdir -p %s %s %s",
+		filepath.Join(service.homeDir, taskDir),
+		filepath.Join(service.homeDir, runtimeDir),
+		filepath.Join(service.homeDir, layersDir)))
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating lambci directories")
 	}
-	if service.runtimeDir == "" {
-		return nil, errors.New("configuration setting 'runtime-dir' is required")
-	}
-	if service.layersDir == "" {
-		return nil, errors.New("configuration setting 'layers-dir' is required")
+
+	_, err = service.Exec(fmt.Sprintf("touch %s", filepath.Join(service.homeDir, envFile)))
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating lambci env file")
 	}
 
 	for name, config := range config.GetStringMap("runtimes") {
@@ -124,27 +126,27 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, runti
 	}
 
 	// remove old layer
-	_, err := service.Exec(fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec rm -r {} +", service.runtimeDir))
+	_, err := service.Exec(fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec rm -r {} +", filepath.Join(service.homeDir, runtimeDir)))
 	if err != nil {
 		return errors.Wrap(err, "error removing old layer")
 	}
 
 	// install new layer
 	for _, layer := range service.runtimes[runtime] {
-		_, err := service.Exec(fmt.Sprintf("cp -r %s %s", filepath.Join(service.layersDir, layer, "*"), service.runtimeDir))
+		_, err := service.Exec(fmt.Sprintf("cp -r %s %s", filepath.Join(service.homeDir, layersDir, layer, "*"), filepath.Join(service.homeDir, runtimeDir)))
 		if err != nil {
 			return errors.Wrapf(err, "error installing layer '%s'", layer)
 		}
 	}
 
 	// remove old task
-	_, err = service.Exec(fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec rm -r {} +", service.taskDir))
+	_, err = service.Exec(fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec rm -r {} +", filepath.Join(service.homeDir, taskDir)))
 	if err != nil {
 		return errors.Wrap(err, "error removing old task")
 	}
 
 	// install new task
-	_, err = service.Copy(filepath.Join(rawDir, "*"), service.taskDir)
+	_, err = service.Copy(filepath.Join(rawDir, "*"), filepath.Join(service.homeDir, taskDir))
 	if err != nil {
 		return errors.Wrap(err, "error installing function")
 	}
@@ -156,7 +158,7 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, runti
 	}
 
 	// install new env map - this triggers the lambda function reload
-	_, err = service.Exec(fmt.Sprintf("echo -n \"%s\" > %s", Map2Lines(env), service.envFile))
+	_, err = service.Exec(fmt.Sprintf("echo -n \"%s\" > %s", Map2Lines(env), filepath.Join(service.homeDir, envFile)))
 	if err != nil {
 		return errors.Wrap(err, "error updating environment")
 	}

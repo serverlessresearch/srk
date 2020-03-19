@@ -9,17 +9,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var funcCleanName string
+var cleanName string
 
-// funcCleanCmd represents the clean command
-var funcCleanCmd = &cobra.Command{
+// cleanCmd represents the clean command
+var cleanCmd = &cobra.Command{
 	Use:   "clean",
 	Short: "Clean up local packages and build files",
 	Long:  `Clean will remove any local files that were generated for the specified function (or all functions if no function-name is provided. Clean does not affect function service providers (use "remove" to remove a function from a provider)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var cleanGlob string
-		if funcCleanName != "" {
-			cleanGlob = srkManager.GetRawFunctionPath(funcCleanName) + "*"
+		if cleanName != "" {
+			cleanGlob = srkManager.GetRawPath(cleanName) + "*"
 		} else {
 			cleanGlob = filepath.Join(srkManager.Cfg.GetString("buildDir"), "functions", "*")
 		}
@@ -34,7 +34,7 @@ var funcCleanCmd = &cobra.Command{
 }
 
 func init() {
-	functionCmd.AddCommand(funcCleanCmd)
+	functionCmd.AddCommand(cleanCmd)
 
-	funcCleanCmd.Flags().StringVarP(&funcCleanName, "function-name", "n", "", "The function to clean (defaults to cleaning all packages)")
+	cleanCmd.Flags().StringVarP(&cleanName, "function-name", "n", "", "The function to clean (defaults to cleaning all packages)")
 }
