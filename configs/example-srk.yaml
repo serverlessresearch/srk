@@ -49,7 +49,7 @@ service :
       default-runtime : 'python3.7'
     lambciLambda:
       # optional remote configuration
-      # if set the path values below are bound to the specified host
+      # if set the directory value below is bound to the specified host
       remote:
         # path to scp command
         scp : '/usr/bin/scp'
@@ -71,6 +71,11 @@ service :
       directory : '~/lambci'
       # runtime configuration
       runtimes :
+        # example runtime definition
+        python-with-request :
+          # list of additional layers 
+          layers :
+            - 'request'
         # example runtime definition
         cffs-python :
           # list of layers that make up the runtime
