@@ -185,18 +185,16 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, r
 	}
 
 	if exists {
-		if awsEnv != nil {
-			request := &lambda.UpdateFunctionConfigurationInput{
-				FunctionName: aws.String(funcName),
-				Runtime:      aws.String(runtime),
-				Environment:  awsEnv,
-				Layers:       awsLayers,
-			}
+		request := &lambda.UpdateFunctionConfigurationInput{
+			FunctionName: aws.String(funcName),
+			Runtime:      aws.String(runtime),
+			Environment:  awsEnv,
+			Layers:       awsLayers,
+		}
 
-			_, err := self.Session().UpdateFunctionConfiguration(request)
-			if err != nil {
-				return errors.Wrap(err, "Failure updating function configuration:")
-			}
+		_, err := self.Session().UpdateFunctionConfiguration(request)
+		if err != nil {
+			return errors.Wrap(err, "Failure updating function configuration:")
 		}
 
 		req := &lambda.UpdateFunctionCodeInput{
