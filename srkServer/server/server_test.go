@@ -229,7 +229,7 @@ func invokeFunc(t *testing.T, c srkproto.FunctionServiceClient, name string, arg
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	resp, err := c.Invoke(ctx, &srkproto.InvokeArg{Name: name, Farg: arg})
+	resp, err := c.Invoke(ctx, &srkproto.InvokeArg{Name: name, Farg: []byte(arg)})
 	if err != nil {
 		t.Fatalf("Failed to invoke function: %v\n", err)
 	}

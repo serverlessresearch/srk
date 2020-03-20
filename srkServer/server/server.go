@@ -115,7 +115,7 @@ func (s *srkServer) Install(ctx context.Context, arg *srkproto.InstallArg) (*srk
 }
 
 func (s *srkServer) Invoke(ctx context.Context, arg *srkproto.InvokeArg) (*srkproto.InvokeRet, error) {
-	r, err := s.mgr.Provider.Faas.Invoke(arg.Name, arg.Farg)
+	r, err := s.mgr.Provider.Faas.Invoke(arg.Name, string(arg.Farg))
 	if err != nil {
 		return nil, err
 	}

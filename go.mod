@@ -11,7 +11,7 @@ require (
 	github.com/fatih/gomodifytags v1.0.1 // indirect
 	github.com/fatih/motion v1.0.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.3.5
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/josharian/impl v0.0.0-20191119165012-6b9658ad00c7 // indirect
 	github.com/jstemmer/gotags v1.4.1 // indirect
