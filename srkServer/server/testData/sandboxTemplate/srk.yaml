@@ -1,0 +1,56 @@
+# This provider will be used by srk commands unless specifically overwritten
+default-provider : "local"
+
+# A provider is a complete set of services that all work together. Typically, a
+# provider will have one implementation of each service category (although it
+# is possible to omit service categories of they are not needed)
+providers :
+  aws :
+    faas : "awsLambda"
+    objStore : "s3"
+  local :
+    faas : "openLambda"
+    objStore : "filesystem"
+
+# This configures each individual service implementation by category. The format is:
+# service.CATEGORY.IMPLEMENTATION (e.g. service.faas.openLambda). These can be
+# referenced in provider descriptions.
+service :
+  # Function as a Service
+  faas :
+    openLambda :
+      # Path to the compiled openLambda manager command
+      # e.g. ~/open-lambda/ol
+      olcmd : /data/repos/npol/ol
+      # Path to the initialized open-lambda working directory
+      # e.g. ~/open-lambda/default-ol/
+      oldir : /data/repos/npol/default-ol/
+      # List of server urls to use when invoking lambdas
+      # e.g. [ "http://localhost:5000" ]
+      olservers : [ "http://localhost:5000" ]
+    awsLambda :
+      # Your arn role.
+      # e.g. "arn:aws:iam::123459789012:role/service-role/my-service-role-ae04d032"
+      role : "arn:aws:iam::226346049469:role/lambda-cli-role"
+      # Optional vpc/security-group setup to use.
+      # e.g.: "vpc-123456789abcdef,sg-123456789abcdef"
+      vpc-config : null
+      region : "us-west-2"
+    global:
+      limitMB: 128
+      limitTime: 10
+        
+  # Key-Value object stores
+  objStore :
+    # XXX These are not implemented yet
+    anna :
+    s3 :
+    filesystem :
+
+  # These services do not have SRK-abstracted interfaces, but you may want us
+  # to launch them on the system anyway.
+  extra :
+    # XXX This is just a placeholder until we need it. I imagine things like
+    # RDBMSs or other BaaS stuff here.
+    mysql :
+
