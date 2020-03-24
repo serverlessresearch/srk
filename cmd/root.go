@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"os"
-	"strings"
 
 	"github.com/serverlessresearch/srk/pkg/srkmgr"
 
@@ -50,32 +49,6 @@ func Execute() {
 		}
 		os.Exit(1)
 	}
-}
-
-func parseList(s string) []string {
-
-	if s == "" {
-		return nil
-	}
-
-	return strings.Split(s, ",")
-}
-
-func parseKeyValue(s string) map[string]string {
-
-	if s == "" {
-		return nil
-	}
-
-	result := make(map[string]string)
-	for _, pair := range strings.Split(s, ",") {
-		keyValue := strings.Split(pair, "=")
-		if len(keyValue) == 2 {
-			result[keyValue[0]] = keyValue[1]
-		}
-	}
-
-	return result
 }
 
 func init() {

@@ -16,6 +16,9 @@ const (
 	retryDelay = 1 * time.Second
 )
 
+// determine the next version from a list of layer directories
+// layer directory names are supposed to end with '-<version>'
+// the function finds the highest version number and adds 1
 func NextLayerVersion(layers []string) int {
 
 	maxVersion := 0
@@ -42,6 +45,7 @@ func NextLayerVersion(layers []string) int {
 	return maxVersion + 1
 }
 
+// convert a string map to a list of lines in key=value format
 func Map2Lines(m map[string]string) string {
 
 	var lines bytes.Buffer
@@ -54,6 +58,7 @@ func Map2Lines(m map[string]string) string {
 	return lines.String()
 }
 
+// post an HTTP request and return result
 func HttpPost(url, data string) (*bytes.Buffer, error) {
 
 	doPost := func() (*bytes.Buffer, error) {

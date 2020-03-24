@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/serverlessresearch/srk/pkg/shell"
 	"github.com/serverlessresearch/srk/pkg/srk"
 	"github.com/spf13/viper"
 )
@@ -140,7 +141,7 @@ func (self *olConfig) Install(rawDir string, env map[string]string, runtime stri
 	tarPath := filepath.Clean(rawDir) + ".tar.gz"
 
 	installPath := filepath.Join(self.dir, "registry", filepath.Base(tarPath))
-	if err := srk.CopyFile(tarPath, installPath); err != nil {
+	if _, err := shell.Cp(tarPath, installPath); err != nil {
 		return err
 	}
 	self.log.Info("Open Lambda function installed to: " + installPath)

@@ -26,11 +26,13 @@ port of the webserver has to be exposed by the ``docker run`` command.
 It is also possible to inject environment variables via the ``--env-file``
 parameter of ``docker run``.
 
-Updates to the function, the runtimes files or the environment file require a
+Updates to the function, the runtime files or the environment file require a
 restart of the container. The helper program ``entr`` can be used to automate
-this. Please see the following shell script as a loader for a LambCI lambda
-container.
+this. It can be installed via ``apt install entr`` (Ubuntu),
+``yum install entr`` (Amazon Linux 2) or ``brew install entr`` on MacOS X.
 
+Please see the following shell script as a loader for a LambCI lambda
+container.
 
 ::
 
@@ -66,7 +68,7 @@ Execute a simple test function
 
 Before running a simple example the SRK configuration for LambCI lambda needs
 to be set up. It is sufficient to specify the data directory and the address of
-the invocation webserver as in the following example.
+the invocation webserver with default port 9001 as in the following example.
 
 ::
 
@@ -89,8 +91,8 @@ the invocation webserver as in the following example.
 	      address : 'localhost:9001'
 
 Given that the configuration is saved to the ``configs`` directory of the SRK
-project, the following commands will install the ``echo`` function to the
-container and invoke it once.
+project, the following commands will install the ``echo`` example function to
+the container and invoke it once.
 
 ::
 
@@ -113,7 +115,7 @@ provided via a sub directory in the ``layers`` directory. The name of the sub
 directory then is the name of the layer.
 
 E.g. to add a python package, create a layer subdirectory in the ``layers``
-directory, create a directory ``python`` in it and download the required
+directory, then create a directory ``python`` in it and download the required
 package. The following example shows how to provide the
 `request <https://requests.readthedocs.io/en/master/>`_ package.
 
@@ -163,10 +165,20 @@ layer.
 Using a custom runtime
 *******************************************************************************
 
-To use a custom runtime, specify ``provided`` as runtime name for the
-``lambci.sh`` script. The lambda container then expects a complete lambda
-runtime in the ``runtime`` directory. For this, create a layer that contains
-the runtime code and configure it in the configuration.
+A custom runtime replaces the runtime enviroment provided by the FaaS provider
+with an own runtime package. This package has to be uploaded as a layer to the
+FaaS provider.
+
+To use a custom runtime, specify ``provided`` as the runtime name for the
+``lambci.sh`` script.
+
+::
+
+	$ ./lambci.sh ~/lambci provided lambda_function.lambda_handler
+
+The lambda container now expects the custom lambda runtime in the ``runtime``
+directory. For this, create a layer that contains the runtime code and configure
+it in the configuration.
 
 ::
 
@@ -192,10 +204,10 @@ the runtime code and configure it in the configuration.
 	            - 'custom-python'
 	            - 'requests'
 
-The custom runtime can be specified at function creation. In the example above,
-SRK will copy the contents of the ``custom-python`` directory (the custom
-runtime) and the ``requests`` layer to the ``runtime`` directory so that the
-LambCI ``provided`` container finds it in ``/opt``.
+The custom runtime can then be specified at function creation. In the example
+above, SRK will copy the contents of the ``custom-python`` directory (the
+custom runtime) and the ``requests`` layer to the ``runtime`` directory so that
+the LambCI ``provided`` container finds it in ``/opt``.
 
 ::
 

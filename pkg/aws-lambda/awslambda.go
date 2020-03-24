@@ -135,7 +135,7 @@ func (self *awsLambdaConfig) Invoke(fName string, args string) (resp *bytes.Buff
 	resp = bytes.NewBuffer(awsResp.Payload)
 
 	if awsResp.FunctionError != nil {
-		return resp, errors.Wrap(errors.New(awsResp.String()), "function returned error")
+		return resp, errors.Wrap(errors.New(string(awsResp.Payload)), "function returned error")
 	}
 	self.log.Info("Function invocation success:\n")
 	self.log.Infof("Executed Version: %v\n", awsResp.ExecutedVersion)

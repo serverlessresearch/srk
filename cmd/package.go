@@ -11,8 +11,8 @@ import (
 
 var packageCmdConfig struct {
 	source  string
-	include string
-	files   string
+	include []string
+	files   []string
 	name    string
 }
 
@@ -30,8 +30,8 @@ can manually inspect or modify it.`,
 			packageCmdConfig.name = strings.TrimSuffix(path.Base(packageCmdConfig.source), path.Ext(packageCmdConfig.source))
 		}
 
-		includes := parseList(packageCmdConfig.include)
-		files := parseList(packageCmdConfig.files)
+		includes := packageCmdConfig.include
+		files := packageCmdConfig.files
 		rawDir := srkManager.GetRawPath(packageCmdConfig.name)
 
 		if err := srkManager.CreateRaw(packageCmdConfig.source, packageCmdConfig.name, includes, files); err != nil {
@@ -53,8 +53,8 @@ func init() {
 
 	// Define the command line arguments for this subcommand
 	packageCmd.Flags().StringVarP(&packageCmdConfig.source, "source", "s", "", "source directory or file")
-	packageCmd.Flags().StringVarP(&packageCmdConfig.include, "include", "i", "", "SRK-provided libraries to include")
-	packageCmd.Flags().StringVarP(&packageCmdConfig.files, "files", "f", "", "additional files to include")
+	packageCmd.Flags().StringSliceVarP(&packageCmdConfig.include, "include", "i", []string{}, "SRK-provided libraries to include")
+	packageCmd.Flags().StringSliceVarP(&packageCmdConfig.files, "files", "f", []string{}, "additional files to include")
 	// The actual default is derived from the source option, so we set it
 	// something that will be clear in the help output until we have all the
 	// options parsed

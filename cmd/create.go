@@ -12,10 +12,10 @@ import (
 
 var createCmdConfig struct {
 	source  string
-	include string
-	files   string
+	include []string
+	files   []string
 	name    string
-	env     string
+	env     map[string]string
 	runtime string
 }
 
@@ -35,9 +35,9 @@ function package" and "srk function install".`,
 		}
 		srkManager.Logger.Info("Function name: " + funcName)
 
-		includes := parseList(createCmdConfig.include)
-		files := parseList(createCmdConfig.files)
-		env := parseKeyValue(createCmdConfig.env)
+		includes := createCmdConfig.include
+		files := createCmdConfig.files
+		env := createCmdConfig.env
 		runtime := createCmdConfig.runtime
 		rawDir := srkManager.GetRawPath(funcName)
 
@@ -65,9 +65,9 @@ func init() {
 
 	// Define the command line arguments for this subcommand
 	createCmd.Flags().StringVarP(&createCmdConfig.source, "source", "s", "", "source directory or file")
-	createCmd.Flags().StringVarP(&createCmdConfig.include, "include", "i", "", "what to include, e.g., bench")
-	createCmd.Flags().StringVarP(&createCmdConfig.files, "files", "f", "", "additional files to include")
-	createCmd.Flags().StringVarP(&createCmdConfig.env, "env", "e", "", "list of environment vars: var1=value1,var2=value2")
+	createCmd.Flags().StringSliceVarP(&createCmdConfig.include, "include", "i", []string{}, "what to include, e.g., bench")
+	createCmd.Flags().StringSliceVarP(&createCmdConfig.files, "files", "f", []string{}, "additional files to include")
+	createCmd.Flags().StringToStringVarP(&createCmdConfig.env, "env", "e", make(map[string]string), "list of environment vars to set for function execution: var1=value1,var2=value2")
 	createCmd.Flags().StringVarP(&createCmdConfig.runtime, "runtime", "r", "", "runtime to use for function execution")
 	// The actual default is derived from the source option, so we set it
 	// something that will be clear in the help output until we have all the

@@ -9,7 +9,7 @@ import (
 
 var installCmdConfig struct {
 	name    string
-	env     string
+	env     map[string]string
 	runtime string
 }
 
@@ -20,7 +20,7 @@ var installCmd = &cobra.Command{
 	Long:  `Install a function to the FaaS service. It is assumed that you have already packaged this function (using the 'package' command).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		env := parseKeyValue(installCmdConfig.env)
+		env := installCmdConfig.env
 		runtime := installCmdConfig.runtime
 		rawDir := srkManager.GetRawPath(installCmdConfig.name)
 
@@ -36,6 +36,6 @@ func init() {
 	functionCmd.AddCommand(installCmd)
 
 	installCmd.Flags().StringVarP(&installCmdConfig.name, "function-name", "n", "", "The function to install")
-	installCmd.Flags().StringVarP(&installCmdConfig.env, "env", "e", "", "list of environment vars: var1=value1,var2=value2")
+	installCmd.Flags().StringToStringVarP(&installCmdConfig.env, "env", "e", make(map[string]string), "list of environment vars to set for function execution: var1=value1,var2=value2")
 	installCmd.Flags().StringVarP(&installCmdConfig.runtime, "runtime", "r", "", "runtime to use for function execution")
 }

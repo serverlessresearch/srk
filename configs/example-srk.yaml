@@ -40,11 +40,11 @@ service :
       runtimes :
         # example custom runtime definition
         cffs-python :
-          # AWS runtime as base, use 'provided' for none
+          # AWS runtime as base, use 'provided' for custom runtime
           base : provided
           # list of additional layers
           layers :
-            - 'arn:aws:lambda:eu-central-1:669282166790:layer:runtime-python37:3'
+            # e.g. - 'arn:aws:lambda:eu-central-1:123459789012:layer:runtime-python37:3'
       # Optional default runtime if runtime is not provided by CLI
       default-runtime : 'python3.7'
     lambciLambda:

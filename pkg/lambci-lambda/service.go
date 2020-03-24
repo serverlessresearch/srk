@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/serverlessresearch/srk/pkg/command"
+	"github.com/serverlessresearch/srk/pkg/shell"
 	"github.com/serverlessresearch/srk/pkg/srk"
 
 	"github.com/aws/aws-sdk-go/service/lambda"
@@ -26,6 +26,7 @@ const (
 	layersDir  = "layers"
 )
 
+// LambCI remote configuration
 type lambciRemote struct {
 	scp  string // path to scp command
 	ssh  string // path to ssh command
@@ -34,6 +35,7 @@ type lambciRemote struct {
 	pem  string // key file for scp + ssh
 }
 
+// LambCI function service
 type lambciLambda struct {
 	remote         *lambciRemote       // optional remote configuration
 	address        string              // address of lambci server API
@@ -163,7 +165,7 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, runti
 	// install new layer
 	if runtime != "" {
 		for _, layer := range service.runtimes[runtime] {
-			_, err := service.Exec(fmt.Sprintf("cp -r %s %s", filepath.Join(service.homeDir, layersDir, layer, "*"), filepath.Join(service.homeDir, runtimeDir)))
+			_, err := service.Copy(filepath.Join(service.homeDir, layersDir, layer, "*"), filepath.Join(service.homeDir, runtimeDir))
 			if err != nil {
 				return errors.Wrapf(err, "error installing layer '%s'", layer)
 			}
@@ -259,20 +261,22 @@ func (service *lambciLambda) ResetStats() error {
 	return nil
 }
 
+// execute a shell command
 func (service *lambciLambda) Exec(cmd string) (string, error) {
 
 	if service.remote != nil {
-		return command.Ssh(service.remote.ssh, service.remote.user, service.remote.host, service.remote.pem, cmd)
+		return shell.Ssh(service.remote.ssh, service.remote.user, service.remote.host, service.remote.pem, cmd)
 	} else {
-		return command.Sh(cmd)
+		return shell.Sh(cmd)
 	}
 }
 
+// copy files via shell command
 func (service *lambciLambda) Copy(src, dst string) (string, error) {
 
 	if service.remote != nil {
-		return command.Scp(service.remote.scp, service.remote.user, service.remote.host, service.remote.pem, src, dst)
+		return shell.Scp(service.remote.scp, service.remote.user, service.remote.host, service.remote.pem, src, dst)
 	} else {
-		return command.Cp(src, dst)
+		return shell.Cp(src, dst)
 	}
 }
