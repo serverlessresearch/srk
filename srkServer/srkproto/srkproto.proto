@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package srkproto;
+
+service FunctionService {
+    // ByteTransfer must represent a tar file with a single top-level directory.
+    // The context should include metadata with the following fields:
+    // Required: name - the name of the function being packaged
+    // Optional: includes - comma-separated list of srk packages to include
+    //                      with the function
+    rpc Package(stream ByteTransfer) returns (PackageRet) {}
+
+    // Install performs the srk.FaaS.Install operation (see package srk for details)
+    rpc Install(InstallArg) returns (InstallRet) {}    
+
+    // Invoke the function once and return the response
+    rpc Invoke(InvokeArg) returns (InvokeRet) {}
+
+    rpc Remove(RemoveArg) returns (RemoveRet) {}
+}
+
+// The context can include metadata with the following fields:
+// env - array of environment variable definitions in KEY=VALUE format
+// runtime - name of the runtime to use (see SRK configuration doc)
+message InstallArg {
+    string name = 1;
+}
+
+message InvokeArg {
+    string name = 1;
+
+    // Function argument. Currently, this argument must represent a string to
+    // be passed to the function, although this may change in future versions.
+    bytes farg = 2;
+}
+
+message InvokeRet {
+    bytes Body = 1;
+}
+
+message RemoveArg {
+    string name = 1;
+}
+
+// Used to send a stream of bytes
+message ByteTransfer {
+    bytes chunk = 1;
+}
+
+// Nothing to report for now, future versions may include something here
+message PackageRet {}
+message InstallRet {}
+message RemoveRet {}

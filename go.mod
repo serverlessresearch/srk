@@ -11,6 +11,7 @@ require (
 	github.com/fatih/gomodifytags v1.0.1 // indirect
 	github.com/fatih/motion v1.0.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
+	github.com/golang/protobuf v1.3.5
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/josharian/impl v0.0.0-20191119165012-6b9658ad00c7 // indirect
 	github.com/jstemmer/gotags v1.4.1 // indirect
@@ -30,5 +31,7 @@ require (
 	golang.org/x/sys v0.0.0-20190922100055-0a153f010e69 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/tools v0.0.0-20200115222509-97cd989a7672 // indirect
+	gonum.org/v1/gonum v0.7.0 // indirect
+	google.golang.org/grpc v1.27.1
 	gopkg.in/alecthomas/kingpin.v3-unstable v3.0.0-20191105091915-95d230a53780 // indirect
 )

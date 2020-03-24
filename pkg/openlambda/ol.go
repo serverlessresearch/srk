@@ -2,11 +2,8 @@
 package openlambda
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"encoding/json"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -17,7 +14,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/serverlessresearch/srk/pkg/shell"
 	"github.com/serverlessresearch/srk/pkg/srk"
 	"github.com/spf13/viper"
 )
@@ -120,7 +116,7 @@ func (self *olConfig) Package(rawDir string) (string, error) {
 		return "", errors.New("'Package' command is only supported in local mode")
 	}
 	tarPath := filepath.Clean(rawDir) + ".tar.gz"
-	rerr := tarRaw(rawDir, tarPath)
+	rerr := srk.TarDir(rawDir, rawDir, tarPath)
 	if rerr != nil {
 		return "", rerr
 	}
@@ -141,7 +137,7 @@ func (self *olConfig) Install(rawDir string, env map[string]string, runtime stri
 	tarPath := filepath.Clean(rawDir) + ".tar.gz"
 
 	installPath := filepath.Join(self.dir, "registry", filepath.Base(tarPath))
-	if _, err := shell.Cp(tarPath, installPath); err != nil {
+	if err := srk.CopyFile(tarPath, installPath); err != nil {
 		return err
 	}
 	self.log.Info("Open Lambda function installed to: " + installPath)
@@ -219,65 +215,5 @@ func (self *olConfig) terminateOlWorker() error {
 		return errors.Wrap(err, "Failed to terminate the open lambda worker:\n"+string(out))
 	}
 	self.sessionStarted = false
-	return nil
-}
-
-func tarRaw(rawPath, destPath string) error {
-	destFile, err := os.Create(destPath)
-	if err != nil {
-		return err
-	}
-	defer destFile.Close()
-
-	gzw := gzip.NewWriter(destFile)
-	defer gzw.Close()
-
-	tarWriter := tar.NewWriter(gzw)
-	defer tarWriter.Close()
-
-	err = filepath.Walk(rawPath, func(filePath string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-
-		if err != nil {
-			return err
-		}
-
-		relPath, err := filepath.Rel(rawPath, filePath)
-		if err != nil {
-			return err
-		}
-
-		header, err := tar.FileInfoHeader(info, filePath)
-		if err != nil {
-			return err
-		}
-		header.Name = relPath
-
-		if err := tarWriter.WriteHeader(header); err != nil {
-			return err
-		}
-
-		sourceFile, err := os.Open(filePath)
-		if err != nil {
-			return err
-		}
-		_, err = io.Copy(tarWriter, sourceFile)
-		if err != nil {
-			return err
-		}
-
-		err = sourceFile.Close()
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
