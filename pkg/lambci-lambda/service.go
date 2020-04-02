@@ -3,7 +3,6 @@ package lambcilambda
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
@@ -74,7 +73,7 @@ func NewFunctionService(logger srk.Logger, config *viper.Viper) (*lambciLambda, 
 		return nil, errors.New("configuration setting 'directory' is required")
 	}
 
-	if strings.HasPrefix(service.homeDir, "~/") {
+	if remote == nil && strings.HasPrefix(service.homeDir, "~/") {
 		usr, err := user.Current()
 		if err != nil {
 			return nil, errors.Wrap(err, "error loading current user")
@@ -82,35 +81,14 @@ func NewFunctionService(logger srk.Logger, config *viper.Viper) (*lambciLambda, 
 		service.homeDir = usr.HomeDir + service.homeDir[1:]
 	}
 
-	createDirIfNotExists := func(subdir string) error {
-		path := filepath.Join(service.homeDir, subdir)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			_, err := service.Exec(fmt.Sprintf("mkdir -p %s", path))
-			if err != nil {
-				return errors.Wrap(err, "error creating lambci directories")
-			}
-		} else {
-			return errors.Wrap(err, "error checking lambci directories")
-		}
-		return nil
+	_, err := service.Exec(fmt.Sprintf("mkdir -p %s %s %s", filepath.Join(service.homeDir, taskDir), filepath.Join(service.homeDir, runtimeDir), filepath.Join(service.homeDir, layersDir)))
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating lambci directories")
 	}
 
-	if err := createDirIfNotExists(taskDir); err != nil {
-		return nil, err
-	}
-	if err := createDirIfNotExists(runtimeDir); err != nil {
-		return nil, err
-	}
-	if err := createDirIfNotExists(layersDir); err != nil {
-		return nil, err
-	}
-
-	env := filepath.Join(service.homeDir, envFile)
-	if _, err := os.Stat(env); err != nil {
-		_, err = service.Exec(fmt.Sprintf("touch %s", env))
-		if err != nil {
-			return nil, errors.Wrap(err, "error creating lambci env file")
-		}
+	_, err = service.Exec(fmt.Sprintf("touch %s", filepath.Join(service.homeDir, envFile)))
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating lambci env file")
 	}
 
 	for name, config := range config.GetStringMap("runtimes") {
@@ -165,7 +143,8 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, runti
 	// install new layer
 	if runtime != "" {
 		for _, layer := range service.runtimes[runtime] {
-			_, err := service.Copy(filepath.Join(service.homeDir, layersDir, layer, "*"), filepath.Join(service.homeDir, runtimeDir))
+			// this has to be Exec instead of Copy because it copies on the target machine
+			_, err := service.Exec(fmt.Sprintf("cp -r %s %s", filepath.Join(service.homeDir, layersDir, layer, "*"), filepath.Join(service.homeDir, runtimeDir)))
 			if err != nil {
 				return errors.Wrapf(err, "error installing layer '%s'", layer)
 			}
