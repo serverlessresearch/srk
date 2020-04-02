@@ -100,7 +100,7 @@ AWS Lambda
 =============
 A full guide to using AWS Lambda is beyond the scope of this document, but you
 can follow AWS's tutorial `here
-<https://docs.aws.amazon.com/lambda/latest/dg/getting-started.html>`_. For SRK
+<https://docs.aws.amazon.com/lambda/latest/dg/getting-started.html>`__. For SRK
 to work, you will need to provide an ARN role and optional VPC. You can set
 these values in ``configs/srk.yaml`` in the ``service.faas.awsLambda`` section.
 For example:
@@ -114,7 +114,7 @@ For example:
 
 The role is an AWS-specific set of permissions for your function. You can learn
 more about creating roles `here
-<https://docs.aws.amazon.com/lambda/latest/dg/lambda-intro-execution-role.html>`_.
+<https://docs.aws.amazon.com/lambda/latest/dg/lambda-intro-execution-role.html>`__.
 The vpc setting controls networking for your function, unless you have a
 specific use-case, you can leave this as null (for more information, see the `AWS VPC
 documentation
