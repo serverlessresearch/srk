@@ -3,7 +3,7 @@ The Serverless Research Kit (SRK)
 The Serverless Research Kit (SRK) exists to accelerate research progress in serverless computing.
 It aims to make it easy to innovate on services typically offered by cloud providers by including, for example,
 readily hackable versions of cloud functions or cloud object storage. SRK also plans to include common benchmarks
-and operational tools, so that launching and evaluating a multi-tenant serverless service is quick and easy.
+and operational tools, so that launching and evaluating a serverless service, even a multi-tenant serverless service, is quick and easy.
 
 You can think of SRK as taking the role of a cloud provider by providing common
 services through a standard API. Unlike a real cloud provider, SRK is designed

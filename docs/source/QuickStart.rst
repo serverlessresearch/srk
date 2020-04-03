@@ -122,17 +122,21 @@ documentation
 
 LambCI lambda
 =================
-The LambCI project provides a `docker image <https://hub.docker.com/r/lambci/lambda>`_
-resembling AWS lambda which can be used as a function-as-a-service provider for
-the SRK. The configuration needs at least the path to the lambci work directory
-and the address of the function invocation API server.
+The `LambCI project <https://hub.docker.com/r/lambci/lambda>`_ provides a `Docker image <https://hub.docker.com/r/lambci/lambda>`_
+resembling AWS lambda which can be used as a function-as-a-service provider for SRK.
+The SRK LambCI FaaS provider is suited to running both in a local development
+environment, or on a remote server, and is especially well suited to projects
+that also use AWS Lambda. A minimal configuration requires a LambCI work
+directory and an address of API for function invocation.
+
+The example below shows a basic configuration in a local environment:
 
 ::
 
   faas :
     lambciLambda:
       # path to the lambci directory - the following sub directories will be used:
-      # * env     environment file for lambci docker container
+      # * env     environment file for lambci Docker container
       # * task    directory of lambda function, /var/task in container
       # * runtime directory of the lambda runtime, /opt in container
       # * layers  directory of layer pool with each layer a sub directory

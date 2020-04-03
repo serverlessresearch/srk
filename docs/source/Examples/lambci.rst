@@ -4,71 +4,20 @@
 How to use LambCI lambda
 ===============================================================================
 
-This example shows how to setup the LambCI lambda docker container and use it
+This example shows how to setup the LambCI Lambda Docker container and use it
 with the SRK.
 
 *******************************************************************************
-Run the the docker image
+Create a configuration file
 *******************************************************************************
 
-LambCI provides docker images for various runtimes out of the box, but can also
-use a custom runtime. To inject the lambda function into the container, the
-``/var/task`` and ``/opt`` directories are mounted to local directories by the
-``docker run`` command. To be compatible with the SRK these directories need to
-be inside the configured LambCI home directory and have the names ``task`` for
-the lambda function and ``runtime`` for a custom runtime or additional layer
-files.
+Before running this example you need to configure SRK with the LambCI provider.
+We start out running this example locally, which requires you to specify two
+things in the configuration: the data directory and and the address of the 
+LambCI server.
 
-Instead of running the lambda function immediatly, SRK uses the LambCI-provided
-webserver with an invocation API to execute the lambda function. Therefore the
-port of the webserver has to be exposed by the ``docker run`` command.
-
-It is also possible to inject environment variables via the ``--env-file``
-parameter of ``docker run``.
-
-Updates to the function, the runtime files or the environment file require a
-restart of the container. The helper program ``entr`` can be used to automate
-this. It can be installed via ``apt install entr`` (Ubuntu),
-``yum install entr`` (Amazon Linux 2) or ``brew install entr`` on MacOS X.
-
-Please see the following shell script as a loader for a LambCI lambda
-container.
-
-::
-
-	#!/bin/sh
-	  
-	if [ $# -ne 3 ]; then
-	        echo "Usage: ./lambci.sh <path-to-lambci-dir> <runtime-name> <function-handler>"
-	        exit 1
-	fi
-
-	mkdir -p $1/task $1/runtime
-	touch $1/env
-
-	find $1/env | entr -r docker run --rm \
-	  -v $1/task:/var/task:ro,delegated \
-	  -v $1/runtime:/opt:ro,delegated \
-	  --env-file $1/env \
-	  -e DOCKER_LAMBDA_STAY_OPEN=1 \
-	  -p 9001:9001 \
-	  lambci/lambda:$2 \
-	  $3
-
-As an example the following command will start a Python lambda function
-container with data from the ``~/lambci`` directory.
-
-::
-
-	$ ./lambci.sh ~/lambci python3.8 lambda_function.lambda_handler
-
-*******************************************************************************
-Execute a simple test function
-*******************************************************************************
-
-Before running a simple example the SRK configuration for LambCI lambda needs
-to be set up. It is sufficient to specify the data directory and the address of
-the invocation webserver with default port 9001 as in the following example.
+For this example, create the file ``configs/lambci-local.yaml`` with the following
+content:
 
 ::
 
@@ -90,44 +39,79 @@ the invocation webserver with default port 9001 as in the following example.
 	      # address of lambci server API
 	      address : 'localhost:9001'
 
-Given that the configuration is saved to the ``configs`` directory of the SRK
-project, the following commands will install the ``echo`` example function to
-the container and invoke it once.
+*******************************************************************************
+Install the function
+*******************************************************************************
+
+Install the ``echo`` example function using SRK with the following command:
 
 ::
 
-	$ ./srk --config configs/local-srk.yaml function create -s examples/echo
-	$ ./srk --config configs/local-srk.yaml bench -b one-shot -a '{"hello" : "world"}'
+	$ ./srk --config configs/lambci-local.yaml function create -s examples/echo
 
-If everything works the function result will be ``{"hello": "world"}``.
 
 *******************************************************************************
-Adding files to the runtime
+Start the LambCI server
 *******************************************************************************
 
-Files in the ``runtime`` directory can be found in the ``/opt`` directory of
-the docker container. This is useful to add libraries and other files to the
-lambda runtime environment independent of the function code.
-
-The ``runtime`` directory (as the ``task`` directory) is managed by the SRK,
-it is not possible to directly places files here. Instead, files have to be
-provided via a sub directory in the ``layers`` directory. The name of the sub
-directory then is the name of the layer.
-
-E.g. to add a python package, create a layer subdirectory in the ``layers``
-directory, then create a directory ``python`` in it and download the required
-package. The following example shows how to provide the
-`request <https://requests.readthedocs.io/en/master/>`_ package.
+SRK does not presently start the LambCI FaaS provider on its own, so you will
+need to start it manually. The following starts up a container
+running a LambCI server locally:
 
 ::
 
-	$ cd ~/lambci/layers
-	$ mkdir -p requests/python && cd requests/python
-	$ curl -L https://github.com/psf/requests/tarball/master | tar xz
-	$ mv psf-requests* requests
+	LAMBCI_PATH=$HOME/lambci
+	LAMBCI_RUNTIME=python3.8
+	LAMBCI_HANDLER=lambda_function.lambda_handler
+	docker run --rm -d \
+	  --name srk-lambci \
+	  -v $LAMBCI_PATH/task:/var/task:ro,delegated \
+	  -v $LAMBCI_PATH/runtime:/opt:ro,delegated \
+	  --env-file $LAMBCI_PATH/env \
+	  -e DOCKER_LAMBDA_STAY_OPEN=1 \
+	  -p 9001:9001 \
+	  lambci/lambda:$LAMBCI_RUNTIME \
+	  $LAMBCI_HANDLER
 
-The layer then can be added to a runtime via an additional configuration, as in
-the following example that configures an additional ``requests`` layer.
+You may also want to create a script to streamline this process.
+See `Scripting LambCI Startup`_.
+
+*******************************************************************************
+Invoke the function
+*******************************************************************************
+
+Use SRK to invoke the ``echo`` function using the following command:
+
+::
+
+	./srk --config configs/lambci-local.yaml bench -b one-shot -a '{"hello" : "world"}'
+
+
+*******************************************************************************
+Shut down the LambCI server
+*******************************************************************************
+
+::
+
+	docker kill srk-lambci
+
+*******************************************************************************
+Using Custom Libraries
+*******************************************************************************
+
+SRK with LambCI allows you to add custom libraries to the runtime. The
+configuration procedure parallels that of AWS Lambda, which users
+`layers <https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html>`_.
+
+In this example we will create a runtime that includes Python's popular `Requests <https://requests.readthedocs.io/en/master/>`_.
+Use the commands below to install the layer:
+
+::
+
+	mkdir -p $HOME/lambci/layers/requests-layer/python
+	pip3 install requests -t $HOME/lambci/layers/requests-layer/python
+
+Now create a configuration file ``configs/lambci-local-requests.yaml`` as follows:
 
 ::
 
@@ -141,36 +125,43 @@ the following example that configures an additional ``requests`` layer.
 	 faas :
 	    lambciLambda:
 	      # path to the lambci directory
-	      directory : '~/lambci'
+	      directory : "~/lambci"
 	      # address of lambci server API
-	      address : 'localhost:9001'
+	      address : "localhost:9001"
 	      # runtime configuration
 	      runtimes :
 	        # with python requests package
 	        with-requests :
 	          # list of additional layers 
 	          layers :
-	            - 'requests'
+	            - "requests-layer"
 
-The ``with-request`` runtime can then be specified at function creation. SRK
-will configure the ``lambci/runtime`` directory to contain the ``requests``
-layer.
+Now recreate the function using the requests layer:
 
 ::
 
-	$ ./srk --config configs/local-srk.yaml function create -s examples/echo -r with-requests
+	./srk --config configs/lambci-local-requests.yaml function create -s examples/requests -r with-requests
+
+
+Run the Docker command (see `Start the LambCI server`_).
+
+Invoke the function
+
+::
+
+	./srk --config configs/lambci-local-requests.yaml bench -b one-shot -a '{}'
 
 
 *******************************************************************************
 Using a custom runtime
 *******************************************************************************
 
-A custom runtime replaces the runtime enviroment provided by the FaaS provider
+A custom runtime replaces the runtime environment provided by the FaaS provider
 with an own runtime package. This package has to be uploaded as a layer to the
 FaaS provider.
 
 To use a custom runtime, specify ``provided`` as the runtime name for the
-``lambci.sh`` script.
+Docker command.
 
 ::
 
@@ -213,6 +204,61 @@ the LambCI ``provided`` container finds it in ``/opt``.
 
 	$ ./srk --config configs/local-srk.yaml function create -s examples/echo -r custom-runtime
 
+
+*******************************************************************************
+Scripting LambCI Startup
+*******************************************************************************
+
+LambCI provides docker images for various runtimes out of the box, but can also
+use a custom runtime. To inject the lambda function into the container, the
+``/var/task`` and ``/opt`` directories are mounted to local directories by the
+``docker run`` command. To be compatible with the SRK these directories need to
+be inside the configured LambCI home directory and have the names ``task`` for
+the lambda function and ``runtime`` for a custom runtime or additional layer
+files.
+
+Instead of running the lambda function immediately, SRK uses the LambCI-provided
+webserver with an invocation API to execute the lambda function. Therefore the
+port of the webserver has to be exposed by the ``docker run`` command.
+
+It is also possible to inject environment variables via the ``--env-file``
+parameter of ``docker run``.
+
+Updates to the function, the runtime files or the environment file require a
+restart of the container. The helper program ``entr`` can be used to automate
+this. It can be installed via ``apt install entr`` (Ubuntu),
+``yum install entr`` (Amazon Linux 2) or ``brew install entr`` on MacOS X.
+
+Please see the following shell script as a loader for a LambCI lambda
+container.
+
+::
+
+	#!/bin/sh
+
+	if [ $# -ne 3 ]; then
+	        echo "Usage: ./lambci.sh <path-to-lambci-dir> <runtime-name> <function-handler>"
+	        exit 1
+	fi
+
+	mkdir -p $1/task $1/runtime
+	touch $1/env
+
+	find $1/env | entr -r docker run --rm \
+	  -v $1/task:/var/task:ro,delegated \
+	  -v $1/runtime:/opt:ro,delegated \
+	  --env-file $1/env \
+	  -e DOCKER_LAMBDA_STAY_OPEN=1 \
+	  -p 9001:9001 \
+	  lambci/lambda:$2 \
+	  $3
+
+As an example the following command will start a Python lambda function
+container with data from the ``~/lambci`` directory.
+
+::
+
+	$ ./lambci.sh ~/lambci python3.8 lambda_function.lambda_handler
 
 *******************************************************************************
 Run the container on a remote machine

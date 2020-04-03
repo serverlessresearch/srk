@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	Shell = "/bin/sh"
+	Shell = "/bin/bash"
 	Exec  = "-c"
 )
 
