@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -24,9 +25,14 @@ a code package. Typically, these take the form of an archive (e.g. .tgz or
 .zip). The command will tell you where the package was saved so that you
 can manually inspect or modify it.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var err error
 
 		if packageCmdConfig.name == "source" {
 			packageCmdConfig.name = strings.TrimSuffix(path.Base(packageCmdConfig.source), path.Ext(packageCmdConfig.source))
+		}
+
+		if packageCmdConfig.source, err = filepath.Abs(packageCmdConfig.source); err != nil {
+			return err
 		}
 
 		includes := strings.Split(packageCmdConfig.include, ",")
