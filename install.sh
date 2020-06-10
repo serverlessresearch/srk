@@ -7,8 +7,11 @@ read -e SRKHOME
 if [[ $SRKHOME == "" ]]; then
     SRKHOME=~/.srk
 fi
-SRKHOME=$(readlink -f $SRKHOME)
 
+# OSX does not support readlink -f so we have to resort to this roundabout method
+SRKHOME=$(python3 -c "import os; print(os.path.realpath(os.path.expanduser('$SRKHOME')))")
+
+mkdir -p $SRKHOME
 cp -r ./runtime $SRKHOME
 
 echo "SRK installed to $SRKHOME"
