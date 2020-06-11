@@ -11,15 +11,16 @@ contained in the runtime/ directory. You may optionally use the 'install.sh'
 script to place these files in a global location (defaults to ~/.srk). In either case, you should
 set the SRKHOME environment variable to the absolute path of whatever directory
 you'd like to use for these files (you can set it to PATH/TO/SRKREPO/runtime to
-always use the most up to date files when developing srk).
+always use the most up to date files when developing srk). In this case we'll
+set it to the repo's version of runtime:
 
     $ ./install.sh
     Please specify an install location (or press enter to default to ~/.srk)
-
-    SRK installed to /home/exampleuser/.srk
-    Please add /home/exampleuser/.srk/config.yaml and configure for your needs
-    You should add "export SRKHOME=/home/exampleuser/.srk" to your .bashrc or equivalent
-    $ export SRKHOME=/home/exampleuser/.srk
+    ./runtime
+    SRK installed to /PATH/TO/REPO/runtime
+    Please add /PATH/TO/REPO/runtime/config.yaml and configure for your needs
+    You should add "export SRKHOME=/PATH/TO/REPO/runtime" to your .bashrc or equivalent
+    $ export SRKHOME=$(pwd)/runtime
 
 You may also want to add your srk repo to PATH or copy the built binary to a
 location on your path.

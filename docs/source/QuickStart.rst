@@ -58,14 +58,12 @@ Initial Setup (Installation)
 For this tutorial, we will use the builtin runtime directory as our SRK home.
 This directory has everything SRK will need in order to operate at runtime. You
 may also use the ./install.sh script to place this somewhere else (see
-:ref:`config-install` for more details). For now, let's export the SRKHOME variable so srk knows where to find its files:
+:ref:`config-install` for more details). For now, let's export the SRKHOME
+variable so srk knows where to find its files:
 
 ::
 
-   $ export SRKHOME=/PATH/TO/SRKREPO/runtime
-
-Replace /PATH/TO/SRKREPO with wherever you repository is. SRKHOME should be an
-abosulte path.
+   $ export SRKHOME=$(pwd)/runtime
 
 Configuration File
 =================================
