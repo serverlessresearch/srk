@@ -1,18 +1,28 @@
 #!/bin/bash
 # This script installs all of the runtime components of SRK to a central location (default ~/.srk).
 
-echo "Please specify an install location (or press enter to default to ~/.srk)"
-read -e SRKHOME
+# OSX does not support readlink -f so we have to resort to this roundabout method
+function abspath {
+    python3 -c "import os; print(os.path.realpath(os.path.expanduser('$1')))"
+}
 
-if [[ $SRKHOME == "" ]]; then
-    SRKHOME=~/.srk
+RUNTIMEDIR=$(abspath ./runtime)
+
+if [[ -z $SRKHOME ]]; then
+    echo "Please specify an install location (or press enter to default to ~/.srk)"
+    read -e SRKHOME
+
+    if [[ $SRKHOME == "" ]]; then
+        SRKHOME=~/.srk
+    fi
+
+    SRKHOME=$(abspath $SRKHOME)
 fi
 
-# OSX does not support readlink -f so we have to resort to this roundabout method
-SRKHOME=$(python3 -c "import os; print(os.path.realpath(os.path.expanduser('$SRKHOME')))")
-
-mkdir -p $SRKHOME
-cp -r ./runtime $SRKHOME
+if [[ $SRKHOME != $RUNTIMEDIR ]]; then
+    mkdir -p $SRKHOME
+    cp -r $RUNTIMEDIR $SRKHOME
+fi
 
 echo "SRK installed to $SRKHOME"
 echo "Please add $SRKHOME/config.yaml and configure for your needs"
