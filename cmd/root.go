@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cfgFile string
+var srkHome string
 
 var srkManager *srkmgr.SrkManager
 
@@ -22,8 +22,8 @@ var rootCmd = &cobra.Command{
 	Long:  `A collection of tools for experimenting with serverless systems.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		mgrArgs := map[string]interface{}{}
-		if cfgFile != "" {
-			mgrArgs["config-file"] = cfgFile
+		if srkHome != "" {
+			mgrArgs["srk-home"] = srkHome
 		}
 
 		var err error
@@ -52,5 +52,5 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is configs/srk.yaml)")
+	rootCmd.PersistentFlags().StringVar(&srkHome, "srk-home", "", "SRK install directory. Defaults to the SRKHOME environment variable (or ./runtime if not provided).")
 }

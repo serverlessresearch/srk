@@ -1,6 +1,7 @@
 package srkmgr
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,16 +30,22 @@ func NewManager(userCfg map[string]interface{}) (*SrkManager, error) {
 	var err error
 	mgr := &SrkManager{}
 
-	if cfgPathRaw, ok := userCfg["config-file"]; ok {
-		if cfgPath, ok := cfgPathRaw.(string); ok {
-			err = mgr.initConfig(&cfgPath)
-		} else {
+	var homePath string
+	if homePathRaw, ok := userCfg["srk-home"]; ok {
+		if homePath, ok = homePathRaw.(string); !ok {
 			return nil, errors.New("option 'config-file' must be of type string")
 		}
 	} else {
-		err = mgr.initConfig(nil)
+		homePath = os.Getenv("SRKHOME")
+		if homePath == "" {
+			homePath = "./runtime"
+		}
 	}
-	if err != nil {
+	if homePath, err = filepath.Abs(homePath); err != nil {
+		return nil, errors.Wrapf(err, "Could not parse srk home directory path: %v", homePath)
+	}
+
+	if err = mgr.initConfig(&homePath); err != nil {
 		return nil, err
 	}
 
@@ -100,6 +107,7 @@ func (self *SrkManager) CreateRaw(source string, funcName string, includes []str
 		return errors.Wrap(err, "Failed to cleanup old build directory "+rawDir)
 	}
 
+	fmt.Printf("Command: cp -r %v %v\n", source, rawDir)
 	cmd := exec.Command("cp", "-r", source, rawDir)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return errors.Wrapf(err, "Adding source returned error\n%v", out)
@@ -123,9 +131,9 @@ func (self *SrkManager) CreateRaw(source string, funcName string, includes []str
 	return nil
 }
 
-func (self *SrkManager) initConfig(cfgPath *string) error {
+func (self *SrkManager) initConfig(homePath *string) error {
 	// Setup defaults and globals here. These can be overwritten in the config,
-	// but aren't included by default.
+	// but aren't included by default. homePath
 
 	// This is a private viper context just for srk (so as not to conflict with
 	// the importer's usage).
@@ -133,23 +141,17 @@ func (self *SrkManager) initConfig(cfgPath *string) error {
 
 	// Dumping ground for all generated output. Users should be able to "rm -rf
 	// build" and get a clean system.
-	self.Cfg.SetDefault("buildDir", "./build")
+	self.Cfg.SetDefault("buildDir", filepath.Join(*homePath, "./build"))
 
 	// Collects all srk-provided libraries.
-	self.Cfg.SetDefault("includeDir", "./includes")
+	self.Cfg.SetDefault("includeDir", filepath.Join(*homePath, "./includes"))
 
 	// Order of precedence: ENV, srk.yaml, "us-west-2"
 	self.Cfg.SetDefault("service.faas.awsLambda.region", "us-west-2")
 	self.Cfg.BindEnv("service.faas.awsLambda.region", "AWS_DEFAULT_REGION")
 
-	if cfgPath != nil {
-		// Use config file from the flag.
-		self.Cfg.SetConfigFile(*cfgPath)
-	} else {
-		// default search path for config is ./configs/srk.* (* can be json, yaml, etc)
-		self.Cfg.AddConfigPath("./configs")
-		self.Cfg.SetConfigName("srk")
-	}
+	self.Cfg.AddConfigPath(*homePath)
+	self.Cfg.SetConfigName("config")
 
 	// If a config file is found, read it in.
 	if err := self.Cfg.ReadInConfig(); err != nil {

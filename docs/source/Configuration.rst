@@ -1,12 +1,34 @@
+.. _configuration:
+
 ======================
 Configuring SRK
 ======================
+
+.. _config-install:
+
+******************************
+Installation
+******************************
+SRK relies on a number of runtime files to operate. It also needs somewhere to
+store generated intermediate files. The ``./runtime`` directory can be used for
+this purpose or you can use the ``install.sh`` script to copy the needed files
+to a global location (e.g. ``~/.srk``). Wherever this directory is, you must
+inform SRK of it using the SRKHOME environment variable. If this is not set,
+SRK will use ./runtime which will only work if you call srk from the
+repositories root directory. SRKHOME should be an absolute path.
+
+We recommend adding SRKHOME to your .bashrc (or equivalent) and placing the srk
+binary on your PATH (either by moving it somewhere or adding the srk repository
+to your PATH).
+
+******************************
+Configuration Files
+******************************
 Configuration of SRK is handled by a configuration file. This file is typically
 in yaml format, but SRK can handle the following formats as well: JSON, TOML,
-YAML, HCL, INI, envfile and Java Properties files. By default, SRK will look
-for a config file at ``configs/srk.yaml``, but you can override this behavior
-by passing the ``--config`` option to the CLI (or the ``config-file`` key when
-calling srkmgr.NewManager().
+YAML, HCL, INI, envfile and Java Properties files. SRK will look
+for a config file at ``$SRKHOME/config.yaml`` (".yaml" can be replaced with any
+of the support file format suffixes).
 
 *******************************
 Configuration Options

@@ -25,6 +25,7 @@ it. With Go installed, you can build SRK with:
 Go will automatically download and compile any dependencies and then compile
 the SRK CLI ``srk``.
 
+
 ************************
 Function Source Code
 ************************
@@ -50,6 +51,22 @@ returns any request it receives.
 *************************
 SRK Configuration
 *************************
+You can see full details at :ref:`configuration`.
+
+Initial Setup (Installation)
+=================================
+For this tutorial, we will use the builtin runtime directory as our SRK home.
+This directory has everything SRK will need in order to operate at runtime. You
+may also use the ./install.sh script to place this somewhere else (see
+:ref:`config-install` for more details). For now, let's export the SRKHOME
+variable so srk knows where to find its files:
+
+::
+
+   $ export SRKHOME=$(pwd)/runtime
+
+Configuration File
+=================================
 SRK provides an interchangable interface to multiple providers of standard
 cloud services. In this case, we will focus on two different FaaS providers:
 AWS Lambda and OpenLambda. At the moment, SRK does not manage the configuration
@@ -58,13 +75,13 @@ configuration from the template provided with SRK:
 
 ::
 
-   $ cp configs/example-srk.yaml configs/srk.yaml
+   $ cp runtime/example-config.yaml runtime/config.yaml
 
 In the next two subsections, we will customize this config to include
 OpenLambda and AWS Lambda support.
 
 OpenLambda
-=================
+^^^^^^^^^^^^^^^^^^^^^
 OpenLambda is an open-source function-as-a-service provider based linux
 containers. We maintain a fork of this project to provide additional features.
 Go ahead and clone this repo anywhere in your filesystem, we'll use our home
@@ -81,7 +98,7 @@ install the system. You will need to have Docker and Golang installed before
 starting this step.
 
 With OpenLambda built, we can now configure SRK to use it. Open up
-``configs/srk.yaml`` and modify the ``service.faas.openLambda`` section to look
+``runtime/config.yaml`` and modify the ``service.faas.openLambda`` section to look
 as follows:
 
 ::
@@ -97,12 +114,12 @@ project. ``oldir`` should point to an OpenLambda workspace (created by calling
 more details.
 
 AWS Lambda
-=============
+^^^^^^^^^^^^^^^^^^^^^
 A full guide to using AWS Lambda is beyond the scope of this document, but you
 can follow AWS's tutorial `here
 <https://docs.aws.amazon.com/lambda/latest/dg/getting-started.html>`_. For SRK
 to work, you will need to provide an ARN role and optional VPC. You can set
-these values in ``configs/srk.yaml`` in the ``service.faas.awsLambda`` section.
+these values in ``runtime/config.yaml`` in the ``service.faas.awsLambda`` section.
 For example:
 
 ::
@@ -121,10 +138,10 @@ documentation
 <https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc.html>`_).
 
 Setting the current provider
-=================================
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Now that we have both AWS Lambda and OpenLambda configured, we can switch
 between them by changing the ``default-provider`` option in
-``configs/srk.yaml``. To start with, let's switch to use local resources only (e.g. OpenLambda):
+``runtime/config.yaml``. To start with, let's switch to use local resources only (e.g. OpenLambda):
 
 ::
 
@@ -144,7 +161,7 @@ installing our function:
 
 This command packaged up our source code in a format compatible with OpenLambda
 and installed it to the directory we configured earlier. To install to AWS,
-change your ``default-provider`` in ``configs/srk.yaml`` to AWS and re-run the
+change your ``default-provider`` in ``runtime/config.yaml`` to AWS and re-run the
 same command. In this case, SRK created a zip file and uploaded it to Amazon's
 service using their Golang bindings.
 
@@ -164,7 +181,7 @@ You should see {"hello" : "world"} printed on your screen. Try passing
 different arguments, your function should simply return whatever you pass it.
 
 This benchmark ran against AWS Lambda, to try OpenLambda, switch your
-``configs/srk.yaml`` back to using local resources and repeat the command.
+``runtime/config.yaml`` back to using local resources and repeat the command.
 
 *******************
 Next Steps

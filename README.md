@@ -5,10 +5,31 @@ It aims to make it easy to innovate on services typically offered by cloud provi
 readily hackable versions of cloud functions or cloud object storage. SRK also plans to include common benchmarks
 and operational tools, so that launching and evaluating a multi-tenant serverless service is quick and easy.
 
+## Installation
+SRK requires a number of runtime files in order to operate. These are all
+contained in the runtime/ directory. You may optionally use the 'install.sh'
+script to place these files in a global location (defaults to ~/.srk). In either case, you should
+set the SRKHOME environment variable to the absolute path of whatever directory
+you'd like to use for these files (you can set it to PATH/TO/SRKREPO/runtime to
+always use the most up to date files when developing srk). In this case we'll
+set it to the repo's version of runtime:
+
+    $ ./install.sh
+    Please specify an install location (or press enter to default to ~/.srk)
+    ./runtime
+    SRK installed to /PATH/TO/REPO/runtime
+    Please add /PATH/TO/REPO/runtime/config.yaml and configure for your needs
+    You should add "export SRKHOME=/PATH/TO/REPO/runtime" to your .bashrc or equivalent
+    $ export SRKHOME=$(pwd)/runtime
+
+You may also want to add your srk repo to PATH or copy the built binary to a
+location on your path.
+
 ## Configuration
-You should first copy the example config configs/example-srk.yaml to
-configs/srk.yaml. You can then edit that file to configure your
-services:
+Wherever you installed SRK, you must now configure it to use different
+providers. You can start by copying $SRKHOME/example-config.yaml to
+$SRKHOME/config.yaml. You can then edit that file to configure your services:
+
 * OpenLambda needs to know where you OL command and working directories are.
 * AWS needs to know your role and vpc/security group configurations
 
