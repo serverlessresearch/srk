@@ -65,6 +65,91 @@ If you would like to use a custom vpc for your functions, you can configure
 that here. If you don't know what this is, you can leave it as null and SRK
 will use Amazon's default behavior.
 
+runtimes
+"""""""""""""""""""""
+You can set up a list of runtimes for your functions here. A runtime consists
+of an AWS provided ``base`` (`<https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html>`_)
+and optional additional ``layers`` (`<https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html>`_).
+Layers have to be uploaded to AWS lambda beforehand and then specified in the
+configuration by their ARN.
+
+::
+
+      # Optional custom runtime and layer configuration
+      runtimes :
+        # example custom runtime definition
+        cffs-python :
+          # AWS runtime as base, use 'provided' for custom runtime
+          base : provided
+          # list of additional layers
+          layers :
+            # e.g. - 'arn:aws:lambda:eu-central-1:123459789012:layer:runtime-python37:3'
+
+default-runtime
+"""""""""""""""""""""
+This specifies the runtime to use if it is not given as CLI parameter.
+
+lambciLambda
+^^^^^^^^^^^^^^^
+`LambCI lambda <https://hub.docker.com/r/lambci/lambda/>`_ provides a
+Docker-based sandbox environment that mimics AWS lambda. This can be used to
+test AWS lambda functions on a local machine which is easier to debug and does
+not create AWS costs. See ``Examples / How to use LambCI lambda`` for a setup
+guide.
+
+address
+"""""""""""""""""""""
+The server address of the Lambci lambda invocation API, usually
+``<hostname>:9001``.
+
+directory
+"""""""""""""""""""""
+The path to the Lambci lambda work directory.
+
+runtimes
+"""""""""""""""""""""
+As the LambCI lambda runtimes is included in the used Docker image, the runtimes
+section does configure additional layers only. Here, layers are directories inside
+the layers directory of the Lambci lambda work directory that need to be created
+manually beforehand.
+
+::
+
+      # runtime configuration
+      runtimes :
+        # example runtime definition
+        cffs-python :
+          # list of directories that make up the runtime
+          layers :
+            - 'runtime-python37-1'
+
+default-runtime
+"""""""""""""""""""""
+This specifies the runtime to use if it is not given as CLI parameter.
+
+remote
+"""""""""""""""""""""
+This section must be configured only if LambCI lambda is running on a remote
+machine. It contains the information necessary to execute shell commands via 
+SSH.
+
+::
+
+      # optional remote configuration
+      # if set the directory value below is bound to the specified host
+      remote:
+        # path to local scp command if not in path
+        scp : '/usr/bin/scp'
+        # path to local ssh command if not in path
+        ssh : '/usr/bin/ssh'
+        # IP or hostname of server running the lambci/lambda docker image
+        host : 'ec2-instance'
+        # user for scp + ssh
+        user : 'ubuntu'
+        # key file for scp + ssh
+        pem : '~/.aws/AWS.pem'
+
+
 global
 ^^^^^^^^^^^^^^^^^^^^
 This section provides global behaviors for all FaaS implementations. Note that

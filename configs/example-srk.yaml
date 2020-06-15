@@ -51,9 +51,9 @@ service :
       # optional remote configuration
       # if set the directory value below is bound to the specified host
       remote:
-        # path to scp command
+        # path to local scp command if not in path
         scp : '/usr/bin/scp'
-        # path to ssh command
+        # path to local ssh command if not in path
         ssh : '/usr/bin/ssh'
         # IP or hostname of server running the lambci/lambda docker image
         host : 'ec2-instance'
@@ -63,7 +63,7 @@ service :
         pem : '~/.aws/AWS.pem'
       # address of lambci server API
       address : 'localhost:9001'
-      # path to the lambci directory - the following sub directories will be used:
+      # path to the lambci work directory - the following sub directories will be used:
       # * task    directory of lambda function
       # * runtime directory of the lambda runtime
       # * layers  directory of layer pool with each layer a sub directory

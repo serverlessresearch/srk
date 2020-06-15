@@ -2,11 +2,15 @@ package srk
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 )
 
 const inputDir = "testData"
@@ -129,6 +133,25 @@ func TestTar(t *testing.T) {
 			t.Fatalf("Extracted file does not match original: %v\n", err)
 		}
 	}
+}
+
+func TestHttpPost(t *testing.T) {
+
+	var received string
+	data := "hello, world"
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		data, _ := ioutil.ReadAll(r.Body)
+		received = string(data)
+		w.Write(data)
+	}))
+	defer ts.Close()
+
+	result, err := HttpPost(ts.URL, data)
+	assert.Nil(t, err)
+
+	assert.Equal(t, data, received)
+	assert.Equal(t, data, result.String())
 }
 
 // func TestMain(m *testing.M) {

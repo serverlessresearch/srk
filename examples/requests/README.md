@@ -1,0 +1,1 @@
+This example demonstrates the use of the Python ``requests`` package in a lambda function. See the documentation at ``Examples / LambCI / Using a custom runtime`` for how to package ``requests``.

@@ -56,6 +56,12 @@ func NewFunctionService(logger srk.Logger, config *viper.Viper) (*lambciLambda, 
 			user: config.GetString("remote.user"),
 			pem:  config.GetString("remote.pem"),
 		}
+		if remote.scp == "" {
+			remote.scp = "scp"
+		}
+		if remote.ssh == "" {
+			remote.ssh = "ssh"
+		}
 	}
 
 	service := &lambciLambda{
@@ -81,12 +87,13 @@ func NewFunctionService(logger srk.Logger, config *viper.Viper) (*lambciLambda, 
 		service.homeDir = usr.HomeDir + service.homeDir[1:]
 	}
 
-	_, err := service.Exec(fmt.Sprintf("mkdir -p %s %s %s", filepath.Join(service.homeDir, taskDir), filepath.Join(service.homeDir, runtimeDir), filepath.Join(service.homeDir, layersDir)))
+	_, err := service.exec(fmt.Sprintf("mkdir -p %s %s %s", filepath.Join(service.homeDir, taskDir), filepath.Join(service.homeDir, runtimeDir), filepath.Join(service.homeDir, layersDir)))
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating lambci directories")
 	}
 
-	_, err = service.Exec(fmt.Sprintf("touch %s", filepath.Join(service.homeDir, envFile)))
+	envFilePath := filepath.Join(service.homeDir, envFile)
+	_, err = service.exec(fmt.Sprintf("if [ ! -f %s ]; then touch %s; fi", envFilePath, envFilePath))
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating lambci env file")
 	}
@@ -135,7 +142,7 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, runti
 	}
 
 	// remove old layer
-	_, err := service.Exec(fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec rm -r {} +", filepath.Join(service.homeDir, runtimeDir)))
+	_, err := service.exec(fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec rm -r {} +", filepath.Join(service.homeDir, runtimeDir)))
 	if err != nil {
 		return errors.Wrap(err, "error removing old layer")
 	}
@@ -144,7 +151,7 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, runti
 	if runtime != "" {
 		for _, layer := range service.runtimes[runtime] {
 			// this has to be Exec instead of Copy because it copies on the target machine
-			_, err := service.Exec(fmt.Sprintf("cp -r %s %s", filepath.Join(service.homeDir, layersDir, layer, "*"), filepath.Join(service.homeDir, runtimeDir)))
+			_, err := service.exec(fmt.Sprintf("cp -r %s %s", filepath.Join(service.homeDir, layersDir, layer, "*"), filepath.Join(service.homeDir, runtimeDir)))
 			if err != nil {
 				return errors.Wrapf(err, "error installing layer '%s'", layer)
 			}
@@ -152,25 +159,25 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, runti
 	}
 
 	// remove old task
-	_, err = service.Exec(fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec rm -r {} +", filepath.Join(service.homeDir, taskDir)))
+	_, err = service.exec(fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -exec rm -r {} +", filepath.Join(service.homeDir, taskDir)))
 	if err != nil {
 		return errors.Wrap(err, "error removing old task")
 	}
 
 	// install new task
-	_, err = service.Copy(filepath.Join(rawDir, "*"), filepath.Join(service.homeDir, taskDir))
+	_, err = service.copy(filepath.Join(rawDir, "*"), filepath.Join(service.homeDir, taskDir))
 	if err != nil {
 		return errors.Wrap(err, "error installing function")
 	}
 
 	// retrieve process id of running lambda docker image
-	pid, err := service.Exec("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | awk \"{print $1}\"")
+	pid, err := service.exec("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | awk \"{print $1}\"")
 	if err != nil {
 		return errors.Wrap(err, "error retrieving lambda process id")
 	}
 
 	// install new env map - this triggers the lambda function reload
-	_, err = service.Exec(fmt.Sprintf("echo -n \"%s\" > %s", Map2Lines(env), filepath.Join(service.homeDir, envFile)))
+	_, err = service.exec(fmt.Sprintf("echo -n \"%s\" > %s", Map2Lines(env), filepath.Join(service.homeDir, envFile)))
 	if err != nil {
 		return errors.Wrap(err, "error updating environment")
 	}
@@ -182,7 +189,7 @@ func (service *lambciLambda) Install(rawDir string, env map[string]string, runti
 		for {
 			time.Sleep(checkDelay)
 
-			newPid, err := service.Exec("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | awk \"{print $1}\"")
+			newPid, err := service.exec("ps ax | grep \"LAMBDA\" | grep -v entr | grep -v grep | awk \"{print $1}\"")
 			if err != nil {
 				return errors.Wrap(err, "error retrieving lambda process id")
 			}
@@ -215,7 +222,7 @@ func (service *lambciLambda) Remove(fName string) error {
 func (service *lambciLambda) Invoke(fName string, args string) (*bytes.Buffer, error) {
 
 	url := fmt.Sprintf("http://%s/2015-03-31/functions/%s/invocations", service.address, fName)
-	return HttpPost(url, args)
+	return srk.HttpPost(url, args)
 }
 
 // Users must call Destroy on any created services to perform cleanup.
@@ -241,7 +248,7 @@ func (service *lambciLambda) ResetStats() error {
 }
 
 // execute a shell command
-func (service *lambciLambda) Exec(cmd string) (string, error) {
+func (service *lambciLambda) exec(cmd string) (string, error) {
 
 	if service.remote != nil {
 		return shell.Ssh(service.remote.ssh, service.remote.user, service.remote.host, service.remote.pem, cmd)
@@ -251,7 +258,7 @@ func (service *lambciLambda) Exec(cmd string) (string, error) {
 }
 
 // copy files via shell command
-func (service *lambciLambda) Copy(src, dst string) (string, error) {
+func (service *lambciLambda) copy(src, dst string) (string, error) {
 
 	if service.remote != nil {
 		return shell.Scp(service.remote.scp, service.remote.user, service.remote.host, service.remote.pem, src, dst)

@@ -16,8 +16,8 @@ We start out running this example locally, which requires you to specify two
 things in the configuration: the data directory and and the address of the 
 LambCI server.
 
-For this example, create the file ``configs/lambci-local.yaml`` with the following
-content:
+For this example, create a configuration file at ``configs/srk.yaml`` with the
+following content:
 
 ::
 
@@ -47,7 +47,7 @@ Install the ``echo`` example function using SRK with the following command:
 
 ::
 
-	$ ./srk --config configs/lambci-local.yaml function create -s examples/echo
+	$ ./srk function create -s examples/echo
 
 
 *******************************************************************************
@@ -84,7 +84,7 @@ Use SRK to invoke the ``echo`` function using the following command:
 
 ::
 
-	./srk --config configs/lambci-local.yaml bench -b one-shot -a '{"hello" : "world"}'
+	./srk bench -b one-shot -a '{"hello" : "world"}'
 
 
 *******************************************************************************
@@ -287,10 +287,6 @@ IP or domain of the remote server. Note that with a remote configuration the
 	      # optional remote configuration
 	      # if set the directory value below is bound to the specified host
 	      remote:
-	        # path to scp command
-	        scp : '/usr/bin/scp'
-	        # path to ssh command
-	        ssh : '/usr/bin/ssh'
 	        # IP or hostname of server running the lambci/lambda docker image
 	        host : 'ec2-instance'
 	        # user for scp + ssh
@@ -301,3 +297,16 @@ IP or domain of the remote server. Note that with a remote configuration the
 	      directory : '~/lambci'
 	      # address of lambci server API
 	      address : 'ec2-instance:9001'
+
+In case the ``ssh`` and ``scp`` commands on your local machine are not in
+``$PATH``, the executables can also be set in the remote configuration section:
+
+::
+
+	      ...
+	      remote:
+	        # path to local scp command
+	        scp : '/usr/bin/scp'
+	        # path to local ssh command
+	        ssh : '/usr/bin/ssh'
+	        ...

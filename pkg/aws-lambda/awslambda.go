@@ -83,7 +83,7 @@ func (self *awsLambdaConfig) ResetStats() error {
 	return nil
 }
 
-func (self *awsLambdaConfig) Session() *lambda.Lambda {
+func (self *awsLambdaConfig) awsSession() *lambda.Lambda {
 
 	if self.session == nil {
 		sess := session.Must(session.NewSession())
@@ -111,7 +111,7 @@ func (self *awsLambdaConfig) Install(rawDir string, env map[string]string, runti
 
 func (self *awsLambdaConfig) Remove(fName string) error {
 
-	_, err := self.Session().DeleteFunction(&lambda.DeleteFunctionInput{FunctionName: aws.String(fName)})
+	_, err := self.awsSession().DeleteFunction(&lambda.DeleteFunctionInput{FunctionName: aws.String(fName)})
 	if err != nil {
 		return decodeAwsError(err)
 	}
@@ -124,7 +124,7 @@ func (self *awsLambdaConfig) Destroy() {
 
 func (self *awsLambdaConfig) Invoke(fName string, args string) (resp *bytes.Buffer, rerr error) {
 
-	awsResp, err := self.Session().Invoke(&lambda.InvokeInput{
+	awsResp, err := self.awsSession().Invoke(&lambda.InvokeInput{
 		FunctionName: aws.String(fName),
 		Payload:      []byte(args),
 		// This is a synchronous invocation, our API might need to change for async
@@ -179,7 +179,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, r
 	}
 
 	var result *lambda.FunctionConfiguration
-	exists, err := lambdaExists(self.Session(), funcName)
+	exists, err := lambdaExists(self.awsSession(), funcName)
 	if err != nil {
 		return errors.Wrap(err, "Failure checking function status:")
 	}
@@ -192,7 +192,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, r
 			Layers:       awsLayers,
 		}
 
-		_, err := self.Session().UpdateFunctionConfiguration(request)
+		_, err := self.awsSession().UpdateFunctionConfiguration(request)
 		if err != nil {
 			return errors.Wrap(err, "Failure updating function configuration:")
 		}
@@ -203,7 +203,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, r
 		}
 
 		self.log.Info("Updating Function: " + funcName)
-		result, err = self.Session().UpdateFunctionCode(req)
+		result, err = self.awsSession().UpdateFunctionCode(req)
 	} else {
 		awsVpcConfig := lambda.VpcConfig{}
 		if self.vpcConfig != "" {
@@ -229,7 +229,7 @@ func (self *awsLambdaConfig) awsInstall(zipPath string, env map[string]string, r
 		}
 
 		self.log.Info("Creating Function: " + funcName)
-		result, err = self.Session().CreateFunction(req)
+		result, err = self.awsSession().CreateFunction(req)
 	}
 	if err != nil {
 		return decodeAwsError(err)
