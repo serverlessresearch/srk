@@ -21,7 +21,7 @@ fi
 
 if [[ $SRKHOME != $RUNTIMEDIR ]]; then
     mkdir -p $SRKHOME
-    cp -r $RUNTIMEDIR $SRKHOME
+    cp -r $RUNTIMEDIR/* $SRKHOME
 fi
 
 echo "SRK installed to $SRKHOME"
