@@ -102,6 +102,7 @@ Using Custom Libraries
 SRK with LambCI allows you to add custom libraries to the runtime. The
 configuration procedure parallels that of AWS Lambda, which users
 `layers <https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html>`_.
+Note that this example assumes that the Python version on your system is compatible with the one in the Lambda Docker image.
 
 In this example we will create a runtime that includes Python's popular `Requests <https://requests.readthedocs.io/en/master/>`_.
 Use the commands below to install the layer:
@@ -156,7 +157,7 @@ Invoke the function
 Using a custom runtime
 *******************************************************************************
 
-A custom runtime replaces the runtime environment provided by the FaaS provider
+A `custom runtime <https://docs.aws.amazon.com/lambda/latest/dg/runtimes-custom.html>`_ replaces the runtime environment provided by the FaaS provider
 with an own runtime package. This package has to be uploaded as a layer to the
 FaaS provider.
 
