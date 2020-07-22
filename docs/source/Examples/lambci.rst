@@ -16,16 +16,16 @@ We start out running this example locally, which requires you to specify two
 things in the configuration: the data directory and and the address of the 
 LambCI server.
 
-For this example, create a configuration file at ``configs/srk.yaml`` with the
+For this example, install a configuration file at ``$SRK_HOME/config.yaml`` with the
 following content:
 
 ::
 
-	default-provider : "lambci"
+	default-provider : 'lambci'
 
 	providers :
 	  lambci :
-	    faas : "lambciLambda"
+	    faas : 'lambciLambda'
 
 	service :
 	 faas :
@@ -111,36 +111,36 @@ Use the commands below to install the layer:
 	mkdir -p $HOME/lambci/layers/requests-layer/python
 	pip3 install requests -t $HOME/lambci/layers/requests-layer/python
 
-Now create a configuration file ``configs/lambci-local-requests.yaml`` as follows:
+Now update your configuration file ``$SRKHOME/config.yaml`` as follows:
 
 ::
 
-	default-provider : "lambci"
+	default-provider : 'lambci'
 
 	providers :
 	  lambci :
-	    faas : "lambciLambda"
+	    faas : 'lambciLambda'
 
 	service :
 	 faas :
 	    lambciLambda:
 	      # path to the lambci directory
-	      directory : "~/lambci"
+	      directory : '~/lambci'
 	      # address of lambci server API
-	      address : "localhost:9001"
+	      address : 'localhost:9001'
 	      # runtime configuration
 	      runtimes :
 	        # with python requests package
 	        with-requests :
 	          # list of additional layers 
 	          layers :
-	            - "requests-layer"
+	            - 'requests-layer'
 
 Now recreate the function using the requests layer:
 
 ::
 
-	./srk --config configs/lambci-local-requests.yaml function create -s examples/requests -r with-requests
+	./srk function create -s examples/requests -r with-requests
 
 
 Run the Docker command (see `Start the LambCI server`_).
@@ -149,7 +149,7 @@ Invoke the function
 
 ::
 
-	./srk --config configs/lambci-local-requests.yaml bench -b one-shot -a '{}'
+	./srk bench -b one-shot -a '{}'
 
 
 *******************************************************************************
@@ -173,11 +173,11 @@ it in the configuration.
 
 ::
 
-	default-provider : "lambci"
+	default-provider : 'lambci'
 
 	providers :
 	  lambci :
-	    faas : "lambciLambda"
+	    faas : 'lambciLambda'
 
 	service :
 	 faas :
@@ -193,7 +193,7 @@ it in the configuration.
 	          # list of additional layers 
 	          layers :
 	            - 'custom-python'
-	            - 'requests'
+	            - 'requests-layer'
 
 The custom runtime can then be specified at function creation. In the example
 above, SRK will copy the contents of the ``custom-python`` directory (the
@@ -202,7 +202,7 @@ the LambCI ``provided`` container finds it in ``/opt``.
 
 ::
 
-	$ ./srk --config configs/local-srk.yaml function create -s examples/echo -r custom-runtime
+	$ ./srk function create -s examples/echo -r custom-runtime
 
 
 *******************************************************************************
@@ -275,11 +275,11 @@ IP or domain of the remote server. Note that with a remote configuration the
 
 ::
 
-	default-provider : "lambci"
+	default-provider : 'lambci'
 
 	providers :
 	  lambci :
-	    faas : "lambciLambda"
+	    faas : 'lambciLambda'
 
 	service :
 	 faas :

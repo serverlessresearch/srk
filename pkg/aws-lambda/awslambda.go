@@ -57,15 +57,15 @@ func NewConfig(logger srk.Logger, config *viper.Viper) (srk.FunctionService, err
 		if baseConfig == "" {
 			baseConfig = "provided"
 		}
-		layerConfig := runtimeConfig["layers"].([]interface{})
+		if layerConfig, definedLayers := runtimeConfig["layers"].([]interface{}); !definedLayers {
+			awsCfg.runtimes[name] = awsLambdaRuntime{
+				base:   baseConfig,
+				layers: make([]string, len(layerConfig)),
+			}
 
-		awsCfg.runtimes[name] = awsLambdaRuntime{
-			base:   baseConfig,
-			layers: make([]string, len(layerConfig)),
-		}
-
-		for i := 0; i < len(layerConfig); i++ {
-			awsCfg.runtimes[name].layers[i] = layerConfig[i].(string)
+			for i := 0; i < len(layerConfig); i++ {
+				awsCfg.runtimes[name].layers[i] = layerConfig[i].(string)
+			}
 		}
 	}
 
