@@ -19,8 +19,8 @@ import (
 )
 
 type olStats struct {
-	tInvoke float64
-	nInvoke int
+	tInvoke int64
+	nInvoke int64
 }
 
 type olConfig struct {
@@ -34,10 +34,8 @@ type olConfig struct {
 	lastUrl uint64
 	// Tracks whether we are interacting with a local OL server or remote
 	isLocal bool
-	// Keeps track of if we've started an ol worker or not
-	sessionStarted bool
-	log            srk.Logger
-	stats          olStats
+	log     srk.Logger
+	stats   olStats
 }
 
 func NewConfig(logger srk.Logger, config *viper.Viper) (srk.FunctionService, error) {
@@ -52,24 +50,23 @@ func NewConfig(logger srk.Logger, config *viper.Viper) (srk.FunctionService, err
 	}
 
 	olCfg := &olConfig{
-		cmd:            config.GetString("olcmd"),
-		dir:            config.GetString("oldir"),
-		urls:           urls,
-		lastUrl:        0,
-		isLocal:        isLocal,
-		sessionStarted: false,
-		log:            logger,
-		stats:          olStats{0, 0},
+		cmd:     config.GetString("olcmd"),
+		dir:     config.GetString("oldir"),
+		urls:    urls,
+		lastUrl: 0,
+		isLocal: isLocal,
+		log:     logger,
+		stats:   olStats{0, 0},
 	}
+
+	if err := olCfg.launchOlWorker(); err != nil {
+		return nil, errors.Wrap(err, "Failed to start openlambda session")
+	}
+
 	return olCfg, nil
 }
 
 func (self *olConfig) ReportStats() (map[string]float64, error) {
-
-	if !self.sessionStarted {
-		return nil, errors.New("No active OpenLambda sessions")
-	}
-
 	olResp, err := http.Post(self.urls[0]+"/stats", "application/json", strings.NewReader(""))
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to POST stats request to ol worker")
@@ -95,7 +92,7 @@ func (self *olConfig) ReportStats() (map[string]float64, error) {
 			self.log.Warnf("Ignoring non-numeric statistics result from openLambda: %v=%v", k, v)
 		}
 	}
-	stats["srkInvoke"] = self.stats.tInvoke / float64(self.stats.nInvoke)
+	stats["srkInvoke"] = (float64)(self.stats.tInvoke) / (float64)(self.stats.nInvoke)
 
 	return stats, nil
 }
@@ -160,18 +157,12 @@ func (self *olConfig) Remove(fName string) error {
 }
 
 func (self *olConfig) Destroy() {
-	if self.sessionStarted && self.isLocal {
+	if self.isLocal {
 		self.terminateOlWorker()
 	}
 }
 
 func (self *olConfig) Invoke(fName string, args string) (resp *bytes.Buffer, rerr error) {
-	if !self.sessionStarted {
-		if err := self.launchOlWorker(); err != nil {
-			return nil, errors.Wrap(err, "Failed to start openlambda session")
-		}
-	}
-
 	// Round-robin between servers
 	urlx := atomic.AddUint64(&self.lastUrl, 1) % uint64(len(self.urls))
 	url := self.urls[urlx]
@@ -182,8 +173,9 @@ func (self *olConfig) Invoke(fName string, args string) (resp *bytes.Buffer, rer
 	}
 	respBuf := new(bytes.Buffer)
 	respBuf.ReadFrom(olResp.Body)
-	self.stats.tInvoke += float64(time.Since(start).Microseconds())
-	self.stats.nInvoke++
+
+	atomic.AddInt64(&self.stats.tInvoke, time.Since(start).Microseconds())
+	atomic.AddInt64(&self.stats.nInvoke, 1)
 
 	return respBuf, nil
 }
@@ -192,8 +184,6 @@ func (self *olConfig) Invoke(fName string, args string) (resp *bytes.Buffer, rer
 // worker is ready to receive requests. OL does the hard work of keeping track
 // of worker PIDs and stuff so we don't have to.
 func (self *olConfig) launchOlWorker() error {
-	self.sessionStarted = true
-
 	//Under heavy load (e.g. many goroutines calling Invoke(), we can run out
 	//of host connections. This allows us to support many more concurrent
 	//connections.
@@ -214,6 +204,5 @@ func (self *olConfig) terminateOlWorker() error {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return errors.Wrap(err, "Failed to terminate the open lambda worker:\n"+string(out))
 	}
-	self.sessionStarted = false
 	return nil
 }

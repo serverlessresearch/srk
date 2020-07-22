@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -26,6 +27,7 @@ var createCmd = &cobra.Command{
 upload it to the configured FaaS provider. Create is equivalent to calling "srk
 function package" and "srk function install".`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var err error
 
 		var funcName string
 		if createCmdConfig.name == "source" {
@@ -35,13 +37,13 @@ function package" and "srk function install".`,
 		}
 		srkManager.Logger.Info("Function name: " + funcName)
 
-		includes := createCmdConfig.include
-		files := createCmdConfig.files
-		env := createCmdConfig.env
-		runtime := createCmdConfig.runtime
+		if createCmdConfig.source, err = filepath.Abs(createCmdConfig.source); err != nil {
+			return err
+		}
+
 		rawDir := srkManager.GetRawPath(funcName)
 
-		if err := srkManager.CreateRaw(createCmdConfig.source, funcName, includes, files); err != nil {
+		if err := srkManager.CreateRaw(createCmdConfig.source, funcName, createCmdConfig.include, createCmdConfig.files); err != nil {
 			return errors.Wrap(err, "Create command failed")
 		}
 		srkManager.Logger.Info("Created raw function: " + rawDir)
