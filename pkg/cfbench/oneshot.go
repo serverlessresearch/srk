@@ -3,6 +3,7 @@
 package cfbench
 
 import (
+	"io/ioutil"
 	"time"
 
 	"github.com/pkg/errors"
@@ -20,29 +21,37 @@ func NewOneShot(logger srk.Logger) (srk.Benchmark, error) {
 }
 
 func (self *oneShotBench) RunBench(prov *srk.Provider, args *srk.BenchArgs) error {
-	self.log.Info("Invoking: " + args.FName + "(" + args.FArgs + ")")
+	self.log.Infof("Invoking: %s(%s)", args.FName, args.FArgs)
 	start := time.Now()
 	resp, err := prov.Faas.Invoke(args.FName, args.FArgs)
 	if err != nil {
-		return errors.Wrap(err, "Failed to invoke function "+args.FName+"("+args.FArgs+")")
+		return errors.Wrapf(err, "Failed to invoke %s(%s)", args.FName, args.FArgs)
 	}
 
 	stats, err := prov.Faas.ReportStats()
 	if err != nil {
-		return errors.Wrap(err, "Failed to gather statistics about function "+args.FName+"("+args.FArgs+")")
+		return errors.Wrapf(err, "Failed to gather statistics about %s(%s)", args.FName, args.FArgs)
 	}
 
 	if err = prov.Faas.ResetStats(); err != nil {
-		return errors.Wrap(err, "Failed to reset statistics for function "+args.FName+"("+args.FArgs+")")
+		return errors.Wrapf(err, "Failed to reset statistics for %s(%s)", args.FName, args.FArgs)
 	}
 
-	self.log.Infof("Invocation statistics: \n")
-	for k, v := range stats {
-		self.log.Infof("%s:\t%v\n", k, v)
+	if len(stats) > 0 {
+		self.log.Infof("Invocation statistics: \n")
+		for k, v := range stats {
+			self.log.Infof("%s:\t%v\n", k, v)
+		}
 	}
 
-	time := time.Since(start)
-	self.log.Infof("Function Complete. Took %v\n", time)
-	self.log.Infof("Function Response:\n%v\n", resp)
+	self.log.WithFields(logrus.Fields{"time": time.Since(start)}).Infof("Function complete: %s", resp.String())
+
+	if args.Output != "" {
+		if err := ioutil.WriteFile(args.Output, resp.Bytes(), 0644); err != nil {
+			return errors.Wrapf(err, "Failed to write result to %s", args.Output)
+		}
+		self.log.Infof("Saved result to %s", args.Output)
+	}
+
 	return nil
 }

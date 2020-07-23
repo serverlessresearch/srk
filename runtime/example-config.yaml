@@ -5,6 +5,8 @@ default-provider : "aws"
 # provider will have one implementation of each service category (although it
 # is possible to omit service categories of they are not needed)
 providers :
+  lambci :
+    faas : "lambciLambda"
   aws :
     faas : "awsLambda"
     objStore : "s3"
@@ -34,4 +36,51 @@ service :
       # Optional vpc/security-group setup to use.
       # e.g.: "vpc-123456789abcdef,sg-123456789abcdef"
       vpc-config : null
+      # Optional custom runtime and layer configuration
+      runtimes :
+        # example custom runtime definition
+        cffs-python :
+          # AWS runtime as base, use 'provided' for custom runtime
+          base : provided
+          # list of additional layers
+          layers :
+            # e.g. - 'arn:aws:lambda:eu-central-1:123459789012:layer:runtime-python37:3'
+      # Optional default runtime if runtime is not provided by CLI
+      default-runtime : 'python3.7'
+    lambciLambda:
+      # optional remote configuration
+      # if set the directory value below is bound to the specified host
+      remote:
+        # path to local scp command if not in path
+        scp : '/usr/bin/scp'
+        # path to local ssh command if not in path
+        ssh : '/usr/bin/ssh'
+        # IP or hostname of server running the lambci/lambda docker image
+        host : 'ec2-instance'
+        # user for scp + ssh
+        user : 'ubuntu'
+        # key file for scp + ssh
+        pem : '~/.aws/AWS.pem'
+      # address of lambci server API
+      address : 'localhost:9001'
+      # path to the lambci work directory - the following sub directories will be used:
+      # * task    directory of lambda function
+      # * runtime directory of the lambda runtime
+      # * layers  directory of layer pool with each layer a sub directory
+      # * env     environment file for lambci docker container
+      directory : '~/lambci'
+      # runtime configuration
+      runtimes :
+        # example runtime definition
+        python-with-request :
+          # list of additional layers 
+          layers :
+            - 'request'
+        # example runtime definition
+        cffs-python :
+          # list of layers that make up the runtime
+          layers :
+            - 'runtime-python37-1'
+      # optional default runtime if runtime is not provided by CLI
+      default-runtime : 'cffs-python'
     global:

@@ -17,7 +17,7 @@ func Example() {
 	srkLogger.SetLevel(logrus.WarnLevel)
 	mgrArgs["logger"] = srkLogger
 
-	mgr, err := srkmgr.NewManager(mgrArgs)
+	mgr, err := NewManager(mgrArgs)
 	if err != nil {
 		fmt.Printf("Failed to initialize: %v\n", err)
 		os.Exit(1)
@@ -25,7 +25,7 @@ func Example() {
 	defer mgr.Destroy()
 
 	// ./helloWorld points to a directory containing a hello world FaaS function
-	if err = mgr.CreateRaw("./helloWorld", "hello", nil); err != nil {
+	if err = mgr.CreateRaw("./helloWorld", "hello", nil, nil); err != nil {
 		fmt.Printf("Failed to create raw directory for lambda: %v\n", err)
 		os.Exit(1)
 	}
@@ -34,13 +34,13 @@ func Example() {
 	// Create the provider-specific representation of our function
 	_, err = mgr.Provider.Faas.Package(rawDir)
 	if err != nil {
-		fmt.Printf("Packaging failed: %v\n")
+		fmt.Printf("Packaging failed: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Upload the function to the provider
-	if err := mgr.Provider.Faas.Install(rawDir); err != nil {
-		fmt.Printf("Installation failed: %v\n")
+	if err := mgr.Provider.Faas.Install(rawDir, nil, ""); err != nil {
+		fmt.Printf("Installation failed: %v\n", err)
 		os.Exit(1)
 	}
 

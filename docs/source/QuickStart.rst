@@ -117,7 +117,7 @@ AWS Lambda
 ^^^^^^^^^^^^^^^^^^^^^
 A full guide to using AWS Lambda is beyond the scope of this document, but you
 can follow AWS's tutorial `here
-<https://docs.aws.amazon.com/lambda/latest/dg/getting-started.html>`_. For SRK
+<https://docs.aws.amazon.com/lambda/latest/dg/getting-started.html>`__. For SRK
 to work, you will need to provide an ARN role and optional VPC. You can set
 these values in ``runtime/config.yaml`` in the ``service.faas.awsLambda`` section.
 For example:
@@ -131,11 +131,39 @@ For example:
 
 The role is an AWS-specific set of permissions for your function. You can learn
 more about creating roles `here
-<https://docs.aws.amazon.com/lambda/latest/dg/lambda-intro-execution-role.html>`_.
+<https://docs.aws.amazon.com/lambda/latest/dg/lambda-intro-execution-role.html>`__.
 The vpc setting controls networking for your function, unless you have a
 specific use-case, you can leave this as null (for more information, see the `AWS VPC
 documentation
 <https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc.html>`_).
+
+LambCI lambda
+=================
+The `LambCI project <https://hub.docker.com/r/lambci/lambda>`_ provides a `Docker image <https://hub.docker.com/r/lambci/lambda>`_
+resembling AWS lambda which can be used as a function-as-a-service provider for SRK.
+The SRK LambCI FaaS provider is suited to running both in a local development
+environment, or on a remote server, and is especially well suited to projects
+that also use AWS Lambda. A minimal configuration requires a LambCI work
+directory and an address of API for function invocation.
+
+The example below shows a basic configuration in a local environment:
+
+::
+
+  faas :
+    lambciLambda:
+      # path to the lambci directory - the following sub directories will be used:
+      # * env     environment file for lambci Docker container
+      # * task    directory of lambda function, /var/task in container
+      # * runtime directory of the lambda runtime, /opt in container
+      # * layers  directory of layer pool with each layer a sub directory
+      directory : '~/lambci'
+      # address of lambci server API
+      address : 'localhost:9001'
+
+See the :ref:`example_lambci` for detailed instructions how to
+set up the lambda container.
+
 
 Setting the current provider
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -175,7 +203,7 @@ displays the response:
 
 ::
 
-   $ ./srk bench --bench one-shot --function-args '{"hello" : "world"}' --function-name echo
+   $ ./srk bench --benchmark one-shot --function-args '{"hello" : "world"}' --function-name echo
 
 You should see {"hello" : "world"} printed on your screen. Try passing
 different arguments, your function should simply return whatever you pass it.
@@ -188,7 +216,7 @@ Next Steps
 *******************
 You may new begin experimenting with different functions. Make some
 modifications to ``echo.py`` or write your own new function. You will need to
-run ``./srk create ...`` again to upload the new function. Once you are
+run ``./srk function create ...`` again to upload the new function. Once you are
 comfortable with the behavior of your function, head over to our `GoDoc Pages
 <https://godoc.org/github.com/serverlessresearch/srk/pkg/srkmgr>`_ to learn
 how to write more advanced benchmarks using the programmatic interface to SRK.

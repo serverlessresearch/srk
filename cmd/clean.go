@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/pkg/errors"
@@ -25,15 +24,8 @@ var cleanCmd = &cobra.Command{
 			cleanGlob = filepath.Join(srkManager.Cfg.GetString("buildDir"), "functions", "*")
 		}
 
-		matches, err := filepath.Glob(cleanGlob)
-		if err != nil {
-			return errors.Wrap(err, "Failed to clean build directory")
-		}
-
-		for _, path := range matches {
-			if err := os.RemoveAll(path); err != nil {
-				return errors.Wrapf(err, "Failed to remove build directory: "+path)
-			}
+		if err := srkManager.CleanDirectory(cleanGlob); err != nil {
+			return errors.Wrap(err, "Failed to clean function")
 		}
 
 		srkManager.Logger.Info("Successfully cleaned function")

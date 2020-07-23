@@ -4,10 +4,11 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/serverlessresearch/srk/pkg/srkmgr"
+
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -29,8 +30,7 @@ var rootCmd = &cobra.Command{
 		var err error
 		srkManager, err = srkmgr.NewManager(mgrArgs)
 		if err != nil {
-			fmt.Println("Failed to initialize srk manager: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("Failed to initialize srk manager: %v\n", err)
 		}
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
@@ -43,7 +43,7 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		if srkManager == nil || srkManager.Logger == nil {
-			fmt.Printf("%v\n", err)
+			log.Error(err)
 		} else {
 			srkManager.Logger.Error(err)
 		}

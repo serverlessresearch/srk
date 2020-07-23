@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/serverlessresearch/srk/pkg/srk"
@@ -95,7 +96,7 @@ func (s *srkServer) Package(chunks srkproto.FunctionService_PackageServer) error
 	// Package the function
 	rawDir := s.mgr.GetRawPath(name)
 
-	if err := s.mgr.CreateRaw(tdir, name, includes); err != nil {
+	if err := s.mgr.CreateRaw(tdir, name, includes, nil); err != nil {
 		return errors.Wrap(err, "Packaging function failed")
 	}
 	s.mgr.Logger.Info("Created raw function: " + rawDir)
@@ -110,8 +111,30 @@ func (s *srkServer) Package(chunks srkproto.FunctionService_PackageServer) error
 }
 
 func (s *srkServer) Install(ctx context.Context, arg *srkproto.InstallArg) (*srkproto.InstallRet, error) {
+
+	meta, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, errors.New("Failed to parse metadata")
+	}
+
+	var env map[string]string
+	if _, exists := meta["env"]; exists {
+		env = make(map[string]string)
+		for _, keyValue := range meta["env"] {
+			definition := strings.Split(keyValue, "=")
+			if len(definition) == 2 {
+				env[definition[0]] = definition[1]
+			}
+		}
+	}
+
+	runtime := ""
+	if len(meta["runtime"]) > 0 {
+		runtime = meta["runtime"][0]
+	}
+
 	rawDir := s.mgr.GetRawPath(arg.Name)
-	return &srkproto.InstallRet{}, s.mgr.Provider.Faas.Install(rawDir)
+	return &srkproto.InstallRet{}, s.mgr.Provider.Faas.Install(rawDir, env, runtime)
 }
 
 func (s *srkServer) Invoke(ctx context.Context, arg *srkproto.InvokeArg) (*srkproto.InvokeRet, error) {

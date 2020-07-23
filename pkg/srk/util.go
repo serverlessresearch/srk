@@ -5,12 +5,15 @@ package srk
 import (
 	"archive/tar"
 	"archive/zip"
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -320,4 +323,51 @@ func UntarStream(src io.Reader, dstPath string) ([]string, error) {
 			f.Close()
 		}
 	}
+}
+
+const (
+	maxRetries = 3
+	retryDelay = 1 * time.Second
+)
+
+// post an HTTP request and return result
+func HttpPost(url, data string) (*bytes.Buffer, error) {
+
+	doPost := func() (*bytes.Buffer, error) {
+
+		response, err := http.Post(url, "application/json", strings.NewReader(data))
+		if err != nil {
+			return nil, err
+		}
+		defer response.Body.Close()
+
+		if response.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("POST %s (%s) returned status %s", url, data, response.Status)
+		}
+
+		result := new(bytes.Buffer)
+		_, err = result.ReadFrom(response.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		return result, nil
+	}
+
+	var err error
+	var result *bytes.Buffer
+
+	retries := 0
+	for {
+
+		result, err = doPost()
+		if err == nil || retries >= maxRetries {
+			break
+		}
+
+		time.Sleep(retryDelay)
+		retries++
+	}
+
+	return result, err
 }

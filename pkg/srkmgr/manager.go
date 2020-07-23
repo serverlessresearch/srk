@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	awslambda "github.com/serverlessresearch/srk/pkg/aws-lambda"
+	lambcilambda "github.com/serverlessresearch/srk/pkg/lambci-lambda"
 	"github.com/serverlessresearch/srk/pkg/openlambda"
 	"github.com/serverlessresearch/srk/pkg/srk"
 	"github.com/sirupsen/logrus"
@@ -17,6 +18,7 @@ import (
 // The SrkManager class represents a single session with SRK. It is not
 // recommended to initialize multiple SrkManager's per host since NewManager()
 // may have side-effects depending on your configuration.
+
 type SrkManager struct {
 	Provider *srk.Provider
 	Logger   srk.Logger
@@ -92,10 +94,11 @@ func (self *SrkManager) GetRawPath(funcName string) string {
 //   funcName: Unique name to give this function
 //   includes: List of standard SRK libraries to include (just the names of the
 //       packages, not paths)
-func (self *SrkManager) CreateRaw(source string, funcName string, includes []string) (err error) {
+//   files: List of additional files to copy into the raw directory.
+func (self *SrkManager) CreateRaw(source string, funcName string, includes, files []string) (err error) {
 	rawDir := self.GetRawPath(funcName)
 
-	//Shared global function build directory
+	// Shared global function build directory
 	fBuildDir := filepath.Join(self.Cfg.GetString("buildDir"), "functions")
 	err = os.MkdirAll(fBuildDir, 0775)
 	if err != nil {
@@ -110,11 +113,14 @@ func (self *SrkManager) CreateRaw(source string, funcName string, includes []str
 	fmt.Printf("Command: cp -r %v %v\n", source, rawDir)
 	cmd := exec.Command("cp", "-r", source, rawDir)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return errors.Wrapf(err, "Adding source returned error\n%v", out)
+		return errors.Wrapf(err, "Adding source returned error\n%s", string(out))
 	}
 
 	// Copy includes into the raw directory
 	for _, include := range includes {
+		if include == "" {
+			continue
+		}
 		includePath := filepath.Join(
 			self.Cfg.GetString("includeDir"),
 			"python",
@@ -125,6 +131,36 @@ func (self *SrkManager) CreateRaw(source string, funcName string, includes []str
 		cmd := exec.Command("cp", "-r", includePath, rawDir)
 		if err := cmd.Run(); err != nil {
 			return errors.Wrap(err, "Adding include returned error")
+		}
+	}
+
+	// Copy files into the raw directory
+	for _, filePath := range files {
+		if filePath == "" {
+			continue
+		}
+		if _, err := os.Stat(filePath); err != nil {
+			return errors.Wrap(err, "Couldn't find file: "+filePath)
+		}
+		cmd := exec.Command("cp", "-r", filePath, rawDir)
+		if err := cmd.Run(); err != nil {
+			return errors.Wrap(err, "Adding file returned error")
+		}
+	}
+
+	return nil
+}
+
+func (self *SrkManager) CleanDirectory(glob string) error {
+
+	matches, err := filepath.Glob(glob)
+	if err != nil {
+		return errors.Wrapf(err, "Error using glob %s", glob)
+	}
+
+	for _, path := range matches {
+		if err := os.RemoveAll(path); err != nil {
+			return errors.Wrapf(err, "Failed to remove directory %s", path)
 		}
 	}
 
@@ -182,6 +218,10 @@ func (self *SrkManager) initFunctionService() error {
 		self.Provider.Faas, err = awslambda.NewConfig(
 			self.Logger.WithField("module", "faas.awslambda"),
 			self.Cfg.Sub("service.faas.awsLambda"))
+	case "lambciLambda":
+		self.Provider.Faas, err = lambcilambda.NewFunctionService(
+			self.Logger.WithField("module", "faas.lambcilambda"),
+			self.Cfg.Sub("service.faas.lambciLambda"))
 	default:
 		return errors.New("Unrecognized FaaS service: " + serviceName)
 	}

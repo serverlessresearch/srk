@@ -19,6 +19,9 @@ service FunctionService {
     rpc Remove(RemoveArg) returns (RemoveRet) {}
 }
 
+// The context can include metadata with the following fields:
+// env - array of environment variable definitions in KEY=VALUE format
+// runtime - name of the runtime to use (see SRK configuration doc)
 message InstallArg {
     string name = 1;
 }

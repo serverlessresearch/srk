@@ -34,7 +34,7 @@ functions and configured the provider.`,
 			benchCmdConfig.functionArgs,
 			benchCmdConfig.benchParams,
 			benchCmdConfig.trackingUrl,
-			benchCmdConfig.benchName + ".out",
+			benchCmdConfig.logFile,
 		}
 
 		switch benchCmdConfig.benchName {
@@ -96,7 +96,7 @@ func init() {
 	benchCmd.Flags().StringVarP(&benchCmdConfig.functionArgs, "function-args", "a", "{}", "Arguments to the function")
 	benchCmd.Flags().StringVarP(&benchCmdConfig.benchParams, "params", "p", "{}", "Parameters for the benchmark")
 	benchCmd.Flags().StringVarP(&benchCmdConfig.trackingUrl, "trackingUrl", "u", "", "URL for posting responses")
-	benchCmd.Flags().StringVarP(&benchCmdConfig.logFile, "output", "o", "log.txt", "Output File")
+	benchCmd.Flags().StringVarP(&benchCmdConfig.logFile, "output", "o", "", "Output File")
 }
 
 func getLocalIp() string {
