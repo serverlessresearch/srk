@@ -91,6 +91,12 @@ func (s *ApiService) Start() error {
 	return nil
 }
 
+func (s *ApiService) Shutdown() {
+	if s.localWorkerManager != nil {
+		s.localWorkerManager.Shutdown()
+	}
+}
+
 func (s *ApiService) InstallFunction(fc FunctionConfiguration) error {
 	if _, exists := s.functionsByName[fc.FnName]; exists {
 		return errors.Errorf("function %s already installed", fc.FnName)

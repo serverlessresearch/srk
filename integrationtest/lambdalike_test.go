@@ -94,4 +94,5 @@ func TestLocalInvocation(t *testing.T) {
 	if responseObj.Message != message {
 		t.Fatalf("received %q but expected %q", responseObj.Message, message)
 	}
+	s.Shutdown()
 }
