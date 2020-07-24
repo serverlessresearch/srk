@@ -3,6 +3,7 @@ package lambdalike
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -18,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
 	"github.com/pkg/errors"
@@ -41,10 +44,12 @@ type ApiService struct {
 	Addr               string
 	localWorkerManager *WorkerManager
 	workChan           chan *requestContext
-	functionsByName    map[string]*FunctionConfiguration
-	functions          []FunctionConfiguration
+	functionsByName    map[string]*lambda.FunctionConfiguration
+	functions          []lambda.FunctionConfiguration
 	activeRequests     map[string]*requestContext
 	activeRequestsLock sync.RWMutex
+	codeStorage        *CodeStorage
+	done               chan bool
 }
 
 func NewApiService(workerIPs []string, port int) *ApiService {
@@ -53,8 +58,10 @@ func NewApiService(workerIPs []string, port int) *ApiService {
 		port:            port,
 		Addr:            "",
 		workChan:        make(chan *requestContext, 20),
-		functionsByName: make(map[string]*FunctionConfiguration),
+		functionsByName: make(map[string]*lambda.FunctionConfiguration),
 		activeRequests:  make(map[string]*requestContext),
+		codeStorage:     NewCodeStorage(),
+		done:            make(chan bool),
 	}
 }
 
@@ -76,7 +83,7 @@ func (s *ApiService) Start() error {
 		portStr := s.Addr[strings.LastIndex(s.Addr, ":")+1:]
 		log.Printf("port is at %s from %s", portStr, s.Addr)
 		// host.docker.internal doesn't presently work on Linux - probably use 172.17.0.1
-		s.localWorkerManager = NewWorkerManager(fmt.Sprintf("host.docker.internal:%s", portStr), nil)
+		s.localWorkerManager = NewWorkerManager(fmt.Sprintf("host.docker.internal:%s", portStr), s)
 	} else {
 		log.Fatal("unimplemented")
 	}
@@ -86,7 +93,10 @@ func (s *ApiService) Start() error {
 	runtimeRouter := s.createRuntimeRouter()
 	runtimeServer = &http.Server{Handler: s.addAPIRoutes(runtimeRouter)}
 
-	go runtimeServer.Serve(runtimeListener)
+	go func() {
+		runtimeServer.Serve(runtimeListener)
+		s.done <- true
+	}()
 
 	return nil
 }
@@ -97,15 +107,23 @@ func (s *ApiService) Shutdown() {
 	}
 }
 
-func (s *ApiService) InstallFunction(fc FunctionConfiguration) error {
-	if _, exists := s.functionsByName[fc.FnName]; exists {
-		return errors.Errorf("function %s already installed", fc.FnName)
+func (s *ApiService) Wait() {
+	<-s.done
+}
+
+func (s *ApiService) InstallFunction(fc lambda.FunctionConfiguration) error {
+	if _, exists := s.functionsByName[*fc.FunctionName]; exists {
+		return errors.Errorf("function %s already installed", *fc.FunctionName)
 	}
 	s.functions = append(s.functions, fc)
-	s.functionsByName[fc.FnName] = &s.functions[len(s.functions)-1]
+	s.functionsByName[*fc.FunctionName] = &s.functions[len(s.functions)-1]
 
 	s.localWorkerManager.Configure(s.functions)
 	return nil
+}
+
+func (s *ApiService) GetZipFile(codeSha256 string) ([]byte, bool) {
+	return s.codeStorage.retrieve(codeSha256)
 }
 
 func (s *ApiService) contextInvoke(context *requestContext) {
@@ -461,6 +479,51 @@ func (s *ApiService) addAPIRoutes(r *chi.Mux) *chi.Mux {
 		w.WriteHeader(200)
 	})
 
+	r.Post("/2015-03-31/functions", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("handing function creation request")
+		// TODO might want to verify content type of the request - preferably with some middleware
+
+		createCommand := lambda.CreateFunctionInput{}
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil || json.Unmarshal(body, &createCommand) != nil {
+			debug("Could not create JSON")
+			debug(body)
+			render.Render(w, r, &errResponse{
+				HTTPStatusCode: 500,
+				ErrorType:      "ErrorUnmarshalError", // TODO is this the correct error code
+				ErrorMessage:   err.Error(),
+			})
+		}
+
+		shaStr := s.codeStorage.save(createCommand.Code.ZipFile)
+
+		config := lambda.FunctionConfiguration{
+			CodeSha256:   aws.String(shaStr),
+			FunctionName: createCommand.FunctionName,
+			Handler:      createCommand.Handler,
+			MemorySize:   createCommand.MemorySize,
+			Version:      aws.String("1"),
+			// TODO
+		}
+		if config.MemorySize == nil || *config.MemorySize < 128 {
+			config.MemorySize = aws.Int64(128)
+		}
+
+		s.InstallFunction(config)
+
+		respJson, err := json.Marshal(config)
+		if err != nil {
+			render.Render(w, r, &errResponse{
+				HTTPStatusCode: 500,
+				ErrorType:      "ErrorMarshalError",
+				ErrorMessage:   err.Error(),
+			})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		w.Write(respJson)
+	})
+
 	r.Post("/2015-03-31/functions/{function}/invocations", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("handing function invocation request")
 		context := newRequestContext()
@@ -566,4 +629,31 @@ func (s *ApiService) addAPIRoutes(r *chi.Mux) *chi.Mux {
 
 func waitForContext(context *requestContext) {
 	<-context.Done
+}
+
+type CodeStorage struct {
+	m    sync.RWMutex
+	code map[string][]byte
+}
+
+func NewCodeStorage() *CodeStorage {
+	return &CodeStorage{code: make(map[string][]byte)}
+}
+
+func (cs *CodeStorage) save(code []byte) string {
+	h := sha256.New()
+	h.Write(code)
+	shaStr := base64.URLEncoding.EncodeToString(h.Sum(nil))
+
+	cs.m.Lock()
+	defer cs.m.Unlock()
+	cs.code[shaStr] = code
+	return shaStr
+}
+
+func (cs *CodeStorage) retrieve(sha256 string) ([]byte, bool) {
+	cs.m.RLock()
+	defer cs.m.RUnlock()
+	code, found := cs.code[sha256]
+	return code, found
 }

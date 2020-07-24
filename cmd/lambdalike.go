@@ -2,9 +2,6 @@
 package cmd
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/serverlessresearch/srk/pkg/lambdalike"
 	"github.com/spf13/cobra"
 )
@@ -20,8 +17,9 @@ var lambdaLikeAPI = &cobra.Command{
 	Short: "Run the LambdaLike API Service",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		s := lambdalike.NewApiService([]string{})
+		s := lambdalike.NewApiService([]string{}, 9001)
 		s.Start()
+		s.Wait()
 
 		return nil
 	},
@@ -32,22 +30,7 @@ var lambdaLikeWorker = &cobra.Command{
 	Short: "Run the Worker Mananger",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		wm := lambdalike.NewWorkerManager(nil)
-		wm.Configure([]lambdalike.FunctionConfiguration{
-			{
-				FnName:       "echo",
-				Version:      "1.0",
-				Handler:      "lambda_handler",
-				MemSize:      "128",
-				Timeout:      "30",
-				Region:       "us-west-2",
-				Runtime:      "python3.8",
-				ZipFileName:  "examples/echo",
-				NumInstances: 2,
-			},
-		})
-		fmt.Printf("ok now")
-		time.Sleep(5 * time.Second)
+		wm := lambdalike.NewWorkerManager("", nil)
 		wm.Shutdown()
 
 		return nil
