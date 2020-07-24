@@ -21,21 +21,21 @@ var rootCmd = &cobra.Command{
 	Use:   "srk",
 	Short: "The Berkeley Serverless Research Kit",
 	Long:  `A collection of tools for experimenting with serverless systems.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		mgrArgs := map[string]interface{}{}
-		if srkHome != "" {
-			mgrArgs["srk-home"] = srkHome
-		}
+	// PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	// 	mgrArgs := map[string]interface{}{}
+	// 	if srkHome != "" {
+	// 		mgrArgs["srk-home"] = srkHome
+	// 	}
 
-		var err error
-		srkManager, err = srkmgr.NewManager(mgrArgs)
-		if err != nil {
-			log.Fatalf("Failed to initialize srk manager: %v\n", err)
-		}
-	},
-	PersistentPostRun: func(cmd *cobra.Command, args []string) {
-		srkManager.Destroy()
-	},
+	// 	var err error
+	// 	srkManager, err = srkmgr.NewManager(mgrArgs)
+	// 	if err != nil {
+	// 		log.Fatalf("Failed to initialize srk manager: %v\n", err)
+	// 	}
+	// },
+	// PersistentPostRun: func(cmd *cobra.Command, args []string) {
+	// 	srkManager.Destroy()
+	// },
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
