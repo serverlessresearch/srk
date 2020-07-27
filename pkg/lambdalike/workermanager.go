@@ -23,7 +23,6 @@ import (
 
 type WorkerManager struct {
 	se           ServiceEndpoint
-	runtimeAddr  string
 	tempDir      string
 	maxFunctions int
 	installed    []FunctionConfiguration
@@ -33,6 +32,7 @@ type WorkerManager struct {
 
 type FunctionConfiguration struct {
 	FnName       string
+	RuntimeAddr  string
 	Version      string
 	Handler      string
 	MemSize      string
@@ -48,16 +48,14 @@ type ServiceEndpoint interface {
 	GetZipFile(name string) ([]byte, bool)
 }
 
-func NewWorkerManager(runtimeAddr string, se ServiceEndpoint) *WorkerManager {
-	log.Printf("creating network manager with address %s", runtimeAddr)
-	tempDir, err := ioutil.TempDir("", "lambdalike")
+func NewWorkerManager(se ServiceEndpoint) *WorkerManager {
+	tempDir, err := ioutil.TempDir("/tmp", "lambdalike")
 	if err != nil {
 		panic(err)
 	}
 	return &WorkerManager{
-		runtimeAddr: runtimeAddr,
-		tempDir:     tempDir,
-		se:          se,
+		tempDir: tempDir,
+		se:      se,
 	}
 }
 
@@ -68,56 +66,69 @@ func (wm *WorkerManager) Shutdown() {
 	wm.wg.Wait()
 }
 
-func (wm *WorkerManager) Configure(functions []lambda.FunctionConfiguration) error {
+// func (wm *WorkerManager) Configure(functions []lambda.FunctionConfiguration) error {
 
-	for _, fc := range functions {
-		wm.ensureCode(*fc.CodeSha256)
-		fi := wm.NewInstanceRunner(&fc, "input/echo")
-		err := fi.Start()
-		if err != nil {
-			return err
-		}
+// 	for _, fc := range functions {
+// 		codePath, err := wm.ensureCode(*fc.CodeSha256)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		fi := wm.NewInstanceRunner(&fc, codePath)
+// 		err = fi.Start()
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
+
+func (wm *WorkerManager) ConfigureOne(fc lambda.FunctionConfiguration, runtimeAddr string) error {
+	codePath, err := wm.ensureCode(*fc.CodeSha256)
+	if err != nil {
+		return err
 	}
-	return nil
+	fi := wm.NewInstanceRunner(&fc, runtimeAddr, codePath)
+	return fi.Start()
 }
 
-func (wm *WorkerManager) ensureCode(codeSha256 string) error {
+func (wm *WorkerManager) ensureCode(codeSha256 string) (string, error) {
 	codePath := path.Join(wm.tempDir, codeSha256)
 	info, err := os.Stat(codePath)
 	if os.IsNotExist(err) {
 		// Install
 		code, found := wm.se.GetZipFile(codeSha256)
 		if !found {
-			return errors.Errorf("Unable to find code for %s", codeSha256)
+			return "", errors.Errorf("Unable to find code for %s", codeSha256)
 		}
 		codeBuf := bytes.NewReader(code)
 		zipReader, err := zip.NewReader(codeBuf, int64(len(code)))
 		if err != nil {
-			return err
+			return "", err
 		}
 		srk.ZipExpand(zipReader.File, codePath)
 	} else {
 		if err != nil {
-			return errors.Wrap(err, "error checking code directory")
+			return "", errors.Wrap(err, "error checking code directory")
 		}
 		if !info.IsDir() {
-			return errors.Errorf("not a directory at %s", codePath)
+			return "", errors.Errorf("not a directory at %s", codePath)
 		}
 	}
-	return nil
+	return codePath, nil
 }
 
 type InstanceRunner struct {
-	wm         *WorkerManager
-	fc         *lambda.FunctionConfiguration
-	sourcePath string
-	cmd        *exec.Cmd
-	curState   string
-	region     string
+	wm          *WorkerManager
+	fc          *lambda.FunctionConfiguration
+	runtimeAddr string
+	sourcePath  string
+	cmd         *exec.Cmd
+	curState    string
+	region      string
 }
 
-func (wm *WorkerManager) NewInstanceRunner(fc *lambda.FunctionConfiguration, sourcePath string) *InstanceRunner {
-	ir := &InstanceRunner{wm, fc, sourcePath, nil, "", "us-west-2"}
+func (wm *WorkerManager) NewInstanceRunner(fc *lambda.FunctionConfiguration, runtimeAddr, sourcePath string) *InstanceRunner {
+	ir := &InstanceRunner{wm, fc, runtimeAddr, sourcePath, nil, "", "us-west-2"}
 	wm.instances = append(wm.instances, ir)
 	return ir
 }
@@ -146,7 +157,7 @@ func (ir *InstanceRunner) Start() error {
 		"--entrypoint", "/bin/bash",
 		// "--env", "AWS_ACCESS_KEY_ID=" + awsAccessKey,
 		// "--env", "AWS_SECRET_ACCESS_KEY=" + awsSecretKey,
-		"-v", "/Users/jssmith/d/srk/examples/echo:/var/task",
+		"-v", ir.sourcePath + ":/var/task",
 		"--env", "_HANDLER=" + *ir.fc.Handler,
 		"--env", "AWS_LAMBDA_FUNCTION_NAME=" + *ir.fc.FunctionName,
 		"--env", "AWS_LAMBDA_FUNCTION_VERSION=" + *ir.fc.Version,
@@ -154,8 +165,8 @@ func (ir *InstanceRunner) Start() error {
 		"--env", "AWS_LAMBDA_LOG_GROUP_NAME=/aws/lambda/" + *ir.fc.FunctionName,
 		"--env", "AWS_LAMBDA_LOG_STREAM_NAME='" + logStreamName(*ir.fc.Version) + "'",
 		"--env", "AWS_REGION=" + ir.region,
-		"--env", "AWS_DEFAULT_REGION" + ir.region,
-		"--env", "AWS_LAMBDA_RUNTIME_API=" + ir.wm.runtimeAddr,
+		"--env", "AWS_DEFAULT_REGION=" + ir.region,
+		"--env", "AWS_LAMBDA_RUNTIME_API=" + ir.runtimeAddr,
 		"lambci/lambda:python3.8",
 	}
 

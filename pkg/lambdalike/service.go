@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -39,62 +38,93 @@ func systemLog(msg string) {
 }
 
 type ApiService struct {
+	m                  sync.RWMutex
 	workerIPs          []string
 	port               int
-	Addr               string
+	Addr               net.Addr
 	localWorkerManager *WorkerManager
-	workChan           chan *requestContext
 	functionsByName    map[string]*lambda.FunctionConfiguration
 	functions          []lambda.FunctionConfiguration
-	activeRequests     map[string]*requestContext
-	activeRequestsLock sync.RWMutex
+	functionRuntimes   map[string]*RuntimeService
 	codeStorage        *CodeStorage
 	done               chan bool
 }
 
+type RuntimeService struct {
+	functionName       string
+	port               int
+	Addr               net.Addr
+	workChan           chan *requestContext
+	activeRequestsLock sync.RWMutex
+	activeRequests     map[string]*requestContext
+	done               chan bool
+}
+
+func NewRuntimeService(functionName string) *RuntimeService {
+	return &RuntimeService{
+		functionName:   functionName,
+		workChan:       make(chan *requestContext, 20),
+		activeRequests: make(map[string]*requestContext),
+	}
+}
+
+func (rs *RuntimeService) Start() error {
+	runtimeListener, err := net.Listen("tcp", "localhost:")
+	if err != nil {
+		return errors.Wrap(err, "error opening listener")
+	}
+	rs.Addr = runtimeListener.Addr()
+	log.Printf("runtime for function %s listening at %s", rs.functionName, rs.Addr.String())
+
+	var runtimeServer *http.Server
+	runtimeServer = &http.Server{Handler: rs.createRuntimeRouter()}
+
+	go func() {
+		runtimeServer.Serve(runtimeListener)
+		rs.done <- true
+	}()
+
+	return nil
+}
+
 func NewApiService(workerIPs []string, port int) *ApiService {
 	return &ApiService{
-		workerIPs:       workerIPs,
-		port:            port,
-		Addr:            "",
-		workChan:        make(chan *requestContext, 20),
-		functionsByName: make(map[string]*lambda.FunctionConfiguration),
-		activeRequests:  make(map[string]*requestContext),
-		codeStorage:     NewCodeStorage(),
-		done:            make(chan bool),
+		workerIPs:        workerIPs,
+		port:             port,
+		functionsByName:  make(map[string]*lambda.FunctionConfiguration),
+		functionRuntimes: make(map[string]*RuntimeService),
+		codeStorage:      NewCodeStorage(),
+		done:             make(chan bool),
 	}
 }
 
 func (s *ApiService) Start() error {
-
 	var addr string = "localhost:"
 	if s.port > 0 {
 		addr = fmt.Sprintf(":%d", s.port)
 	}
-	runtimeListener, err := net.Listen("tcp", addr)
+	apiListener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return errors.Wrap(err, "error opening listener")
 	}
-	s.Addr = runtimeListener.Addr().String()
-	log.Printf("listening at %s", s.Addr)
+	s.Addr = apiListener.Addr()
+	log.Printf("listening at %v", s.Addr)
 
 	if len(s.workerIPs) == 0 {
-		// start up a local WorkerManager
-		portStr := s.Addr[strings.LastIndex(s.Addr, ":")+1:]
-		log.Printf("port is at %s from %s", portStr, s.Addr)
+		port := s.Addr.(*net.TCPAddr).Port
+		// s.Addr[strings.LastIndex(s.Addr, ":")+1:]
+		log.Printf("port is at %d", port)
 		// host.docker.internal doesn't presently work on Linux - probably use 172.17.0.1
-		s.localWorkerManager = NewWorkerManager(fmt.Sprintf("host.docker.internal:%s", portStr), s)
+		s.localWorkerManager = NewWorkerManager(s)
 	} else {
 		log.Fatal("unimplemented")
 	}
 
-	var runtimeServer *http.Server
-
-	runtimeRouter := s.createRuntimeRouter()
-	runtimeServer = &http.Server{Handler: s.addAPIRoutes(runtimeRouter)}
+	var apiServer *http.Server
+	apiServer = &http.Server{Handler: s.addAPIRoutes(chi.NewRouter())}
 
 	go func() {
-		runtimeServer.Serve(runtimeListener)
+		apiServer.Serve(apiListener)
 		s.done <- true
 	}()
 
@@ -112,13 +142,27 @@ func (s *ApiService) Wait() {
 }
 
 func (s *ApiService) InstallFunction(fc lambda.FunctionConfiguration) error {
-	if _, exists := s.functionsByName[*fc.FunctionName]; exists {
-		return errors.Errorf("function %s already installed", *fc.FunctionName)
-	}
-	s.functions = append(s.functions, fc)
-	s.functionsByName[*fc.FunctionName] = &s.functions[len(s.functions)-1]
+	functionName := *fc.FunctionName
+	s.m.Lock()
+	defer s.m.Unlock()
 
-	s.localWorkerManager.Configure(s.functions)
+	if _, exists := s.functionsByName[functionName]; exists {
+		return errors.Errorf("function %s already installed", functionName)
+	}
+
+	runtime := NewRuntimeService(functionName)
+	err := runtime.Start()
+	if err != nil {
+		return err
+	}
+
+	s.functionRuntimes[functionName] = runtime
+
+	s.functions = append(s.functions, fc)
+	s.functionsByName[functionName] = &s.functions[len(s.functions)-1]
+
+	// TODO this address is only when connecting to the local host
+	s.localWorkerManager.ConfigureOne(fc, fmt.Sprintf("host.docker.internal:%d", runtime.Addr.(*net.TCPAddr).Port))
 	return nil
 }
 
@@ -126,27 +170,44 @@ func (s *ApiService) GetZipFile(codeSha256 string) ([]byte, bool) {
 	return s.codeStorage.retrieve(codeSha256)
 }
 
-func (s *ApiService) contextInvoke(context *requestContext) {
-	s.activeRequestsLock.Lock()
-	defer s.activeRequestsLock.Unlock()
+func (s *ApiService) contextInvoke(functionName string, context *requestContext) error {
+	s.m.RLock()
+	runtimeService, exists := s.functionRuntimes[functionName]
+	s.m.RUnlock()
+	if !exists {
+		return errors.Errorf("function %s does not exist", functionName)
+	}
+	runtimeService.contextInvoke(context)
 
-	s.activeRequests[context.RequestID] = context
-	s.workChan <- context
+	return nil
 }
 
-func (s *ApiService) contextLookup(requestID string) (*requestContext, bool) {
-	s.activeRequestsLock.RLock()
-	defer s.activeRequestsLock.RUnlock()
+func (rs *RuntimeService) contextInvoke(context *requestContext) {
+	rs.activeRequestsLock.Lock()
+	defer rs.activeRequestsLock.Unlock()
 
-	context, found := s.activeRequests[requestID]
+	rs.activeRequests[context.RequestID] = context
+
+	rs.workChan <- context
+}
+
+func (rs *RuntimeService) contextNext(functionName string) *requestContext {
+	return <-rs.workChan
+}
+
+func (rs *RuntimeService) contextLookup(requestID string) (*requestContext, bool) {
+	rs.activeRequestsLock.RLock()
+	defer rs.activeRequestsLock.RUnlock()
+
+	context, found := rs.activeRequests[requestID]
 	return context, found
 }
 
-func (s *ApiService) contextCompleted(context *requestContext) {
+func (rs *RuntimeService) contextCompleted(context *requestContext) {
 	log.Printf("setting context to completed")
-	s.activeRequestsLock.Lock()
-	delete(s.activeRequests, context.RequestID)
-	s.activeRequestsLock.Unlock()
+	rs.activeRequestsLock.Lock()
+	delete(rs.activeRequests, context.RequestID)
+	rs.activeRequestsLock.Unlock()
 
 	log.Printf("send on channel")
 	context.Done <- true
@@ -155,7 +216,7 @@ func (s *ApiService) contextCompleted(context *requestContext) {
 
 var acceptedResponse = &statusResponse{Status: "OK", HTTPStatusCode: 202}
 
-func (s *ApiService) createRuntimeRouter() *chi.Mux {
+func (rs *RuntimeService) createRuntimeRouter() *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Route("/2018-06-01", func(r chi.Router) {
@@ -186,8 +247,8 @@ func (s *ApiService) createRuntimeRouter() *chi.Mux {
 						// eventChan <- &mockLambdaContext{Ignore: true}
 					}()
 
-					debug("Waiting for next event...")
-					context := <-s.workChan
+					debug("Getting next event...")
+					context := rs.contextNext("echo")
 					// if context.Ignore {
 					// 	debug("Ignore event received, returning")
 					// 	w.Write([]byte{})
@@ -226,7 +287,7 @@ func (s *ApiService) createRuntimeRouter() *chi.Mux {
 						requestID := chi.URLParam(r, "requestID")
 						log.Printf("have request id %s", requestID)
 
-						context, contextFound := s.contextLookup(requestID)
+						context, contextFound := rs.contextLookup(requestID)
 						if !contextFound {
 							render.Render(w, r, &errResponse{
 								HTTPStatusCode: 500,
@@ -248,15 +309,12 @@ func (s *ApiService) createRuntimeRouter() *chi.Mux {
 						r.Body.Close()
 
 						debug("Setting Reply in /response")
-						log.Printf("we have header %v", r.Header)
-						log.Printf("we have context %v", r.Context())
-						log.Printf("we have cookies %v", r.Cookies())
 
 						context.Reply = &invokeResponse{Payload: body}
 
 						// context.SetLogTail(r)
 						context.SetInitEnd(r)
-						s.contextCompleted(context)
+						rs.contextCompleted(context)
 
 						render.Render(w, r, acceptedResponse)
 						w.(http.Flusher).Flush()
@@ -525,7 +583,8 @@ func (s *ApiService) addAPIRoutes(r *chi.Mux) *chi.Mux {
 	})
 
 	r.Post("/2015-03-31/functions/{function}/invocations", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("handing function invocation request")
+		function := chi.URLParam(r, "function")
+		log.Printf("handing function invocation request for %s", function)
 		context := newRequestContext()
 
 		if r.Header.Get("Origin") != "" {
@@ -572,7 +631,11 @@ func (s *ApiService) addAPIRoutes(r *chi.Mux) *chi.Mux {
 		}
 		r.Body.Close()
 
-		s.contextInvoke(context)
+		err := s.contextInvoke(function, context)
+		if err != nil {
+			// TODO - should check for function existence earlier - and this should be internal error (500)
+			panic(err)
+		}
 
 		if context.InvocationType == "Event" {
 			w.Header().Set("x-amzn-RequestId", context.RequestID)
