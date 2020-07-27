@@ -16,25 +16,18 @@ import (
 )
 
 func TestLocalDryRun(t *testing.T) {
-	var err error
-	s := lambdalike.NewApiService([]string{}, 0)
-	err = s.Start()
+	s, client, err := setup()
 	if err != nil {
 		t.Fatal(err)
 	}
-	sess := session.Must(session.NewSession())
-	client := lambda.New(sess, &aws.Config{
-		Endpoint: aws.String("http://" + s.Addr.String()),
-		Region:   aws.String("us-west-2"),
-	})
 
-	log.Printf("starting function invocation")
+	log.Printf("starting dry-run function invocation")
 	resp, err := client.Invoke(&lambda.InvokeInput{
 		FunctionName:   aws.String("echo"),
 		Payload:        []byte{},
 		InvocationType: aws.String("DryRun"),
 	})
-	log.Printf("finished function invocation")
+	log.Printf("finished dry-run function invocation")
 
 	if err != nil {
 		t.Fatal("Error invoking function", err)
@@ -42,6 +35,7 @@ func TestLocalDryRun(t *testing.T) {
 	if *resp.StatusCode != 204 {
 		t.Fatalf("expected response code 204 but received %d", *resp.StatusCode)
 	}
+	s.Shutdown()
 }
 
 func TestLocalInvocation(t *testing.T) {
@@ -60,17 +54,10 @@ func TestLocalInvocation(t *testing.T) {
 	}
 	message := "hello lambda!"
 
-	var send = helloMessage{message}
-	inputStr, err := json.Marshal(send)
+	invokeResp, err := invoke(client, "echo", &helloMessage{message})
 	if err != nil {
 		t.Fatal(err)
 	}
-	invokeResp, err := client.Invoke(&lambda.InvokeInput{
-		FunctionName:   aws.String("echo"),
-		Payload:        inputStr,
-		InvocationType: aws.String("RequestResponse"),
-	})
-
 	if err != nil {
 		t.Fatal("Error invoking function", err)
 	}
@@ -85,6 +72,98 @@ func TestLocalInvocation(t *testing.T) {
 	log.Printf("response message is %q", responseObj.Message)
 	if responseObj.Message != message {
 		t.Fatalf("received %q but expected %q", responseObj.Message, message)
+	}
+	s.Shutdown()
+}
+
+func TestTwoInvocations(t *testing.T) {
+	s, client, err := setup()
+	if err != nil {
+		t.Fatal(err)
+	}
+	createResp, err := installObject(client, "echo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Print(createResp)
+
+	type helloMessage struct {
+		Message string `json:"message"`
+	}
+
+	invoke := func(message string) {
+		invokeResp, err := invoke(client, "echo", &helloMessage{message})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err != nil {
+			t.Fatal("Error invoking function", err)
+		}
+		if *invokeResp.StatusCode != 200 {
+			t.Fatalf("expected response code 200 but received %d", *invokeResp.StatusCode)
+		}
+		responseObj := helloMessage{}
+		err = json.Unmarshal(invokeResp.Payload, &responseObj)
+		if err != nil {
+			t.Fatal(err)
+		}
+		log.Printf("response message is %q", responseObj.Message)
+		if responseObj.Message != message {
+			t.Fatalf("received %q but expected %q", responseObj.Message, message)
+		}
+	}
+
+	invoke("hello lambda!")
+	invoke("hello again!!!")
+
+	s.Shutdown()
+}
+
+func TestTwoFunctions(t *testing.T) {
+	s, client, err := setup()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = installObject(client, "echo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = installObject(client, "hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type helloMessage struct {
+		Message string `json:"message"`
+	}
+	message := "hello lambda!"
+	echoResp, err := invoke(client, "echo", &helloMessage{message})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var responseObj helloMessage
+	err = json.Unmarshal(echoResp.Payload, &responseObj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Printf("response message is %q", responseObj.Message)
+	if responseObj.Message != message {
+		t.Fatalf("received %q but expected %q", responseObj.Message, message)
+	}
+
+	type empty struct{}
+	expectedHello := "hello world!!!"
+	helloResp, err := invoke(client, "hello", &empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = json.Unmarshal(helloResp.Payload, &responseObj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Printf("response message is %q", responseObj.Message)
+	if responseObj.Message != expectedHello {
+		t.Fatalf("received %q but expected %q", responseObj.Message, expectedHello)
 	}
 	s.Shutdown()
 }
@@ -135,53 +214,4 @@ func invoke(client *lambda.Lambda, functionName string, payload interface{}) (*l
 		Payload:        inputStr,
 		InvocationType: aws.String("RequestResponse"),
 	})
-}
-
-func TestTwoFunctions(t *testing.T) {
-	s, client, err := setup()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = installObject(client, "echo")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = installObject(client, "hello")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	type helloMessage struct {
-		Message string `json:"message"`
-	}
-	message := "hello lambda!"
-	echoResp, err := invoke(client, "echo", &helloMessage{message})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var responseObj helloMessage
-	err = json.Unmarshal(echoResp.Payload, &responseObj)
-	if err != nil {
-		t.Fatal(err)
-	}
-	log.Printf("response message is %q", responseObj.Message)
-	if responseObj.Message != message {
-		t.Fatalf("received %q but expected %q", responseObj.Message, message)
-	}
-
-	type empty struct{}
-	expectedHello := "hello world!!!"
-	helloResp, err := invoke(client, "hello", &empty{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = json.Unmarshal(helloResp.Payload, &responseObj)
-	if err != nil {
-		t.Fatal(err)
-	}
-	log.Printf("response message is %q", responseObj.Message)
-	if responseObj.Message != expectedHello {
-		t.Fatalf("received %q but expected %q", responseObj.Message, expectedHello)
-	}
-	s.Shutdown()
 }

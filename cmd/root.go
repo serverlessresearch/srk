@@ -21,6 +21,9 @@ var rootCmd = &cobra.Command{
 	Use:   "srk",
 	Short: "The Berkeley Serverless Research Kit",
 	Long:  `A collection of tools for experimenting with serverless systems.`,
+
+	// TODO - have this commented out right now because we're bringing in configuration not needed for LambdaLike
+
 	// PersistentPreRun: func(cmd *cobra.Command, args []string) {
 	// 	mgrArgs := map[string]interface{}{}
 	// 	if srkHome != "" {

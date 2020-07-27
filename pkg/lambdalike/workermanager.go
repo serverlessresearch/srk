@@ -1,3 +1,4 @@
+// Adapted from https://github.com/lambci/docker-lambda/blob/46ff80e2fe3bbb3fab4fa18ac2fb05d7167f064e/provided/run/init.go
 package lambdalike
 
 import (
@@ -21,31 +22,17 @@ import (
 	"github.com/serverlessresearch/srk/pkg/srk"
 )
 
+type ServiceEndpoint interface {
+	GetZipFile(name string) ([]byte, bool)
+}
+
+// WorkerManager manages the Docker containers that execute functions
 type WorkerManager struct {
 	se           ServiceEndpoint
 	tempDir      string
 	maxFunctions int
-	installed    []FunctionConfiguration
 	instances    []*InstanceRunner
 	wg           sync.WaitGroup
-}
-
-type FunctionConfiguration struct {
-	FnName       string
-	RuntimeAddr  string
-	Version      string
-	Handler      string
-	MemSize      string
-	Timeout      string
-	Region       string // TODO move this out
-	XAmznTraceID string // TODO - does this belong?
-	Runtime      string
-	ZipFileName  string
-	NumInstances int
-}
-
-type ServiceEndpoint interface {
-	GetZipFile(name string) ([]byte, bool)
 }
 
 func NewWorkerManager(se ServiceEndpoint) *WorkerManager {
@@ -66,8 +53,11 @@ func (wm *WorkerManager) Shutdown() {
 	wm.wg.Wait()
 }
 
+// TODO - this is commented out right now. The idea is to take a declarative
+// configuration with a number of functions. Use ConfigureOne to set up only
+// one function.
 // func (wm *WorkerManager) Configure(functions []lambda.FunctionConfiguration) error {
-
+//
 // 	for _, fc := range functions {
 // 		codePath, err := wm.ensureCode(*fc.CodeSha256)
 // 		if err != nil {

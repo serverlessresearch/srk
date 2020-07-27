@@ -1,3 +1,4 @@
+// Adapted from https://github.com/lambci/docker-lambda/blob/46ff80e2fe3bbb3fab4fa18ac2fb05d7167f064e/provided/run/init.go
 package lambdalike
 
 import (
@@ -50,43 +51,6 @@ type ApiService struct {
 	done               chan bool
 }
 
-type RuntimeService struct {
-	functionName       string
-	port               int
-	Addr               net.Addr
-	workChan           chan *requestContext
-	activeRequestsLock sync.RWMutex
-	activeRequests     map[string]*requestContext
-	done               chan bool
-}
-
-func NewRuntimeService(functionName string) *RuntimeService {
-	return &RuntimeService{
-		functionName:   functionName,
-		workChan:       make(chan *requestContext, 20),
-		activeRequests: make(map[string]*requestContext),
-	}
-}
-
-func (rs *RuntimeService) Start() error {
-	runtimeListener, err := net.Listen("tcp", "localhost:")
-	if err != nil {
-		return errors.Wrap(err, "error opening listener")
-	}
-	rs.Addr = runtimeListener.Addr()
-	log.Printf("runtime for function %s listening at %s", rs.functionName, rs.Addr.String())
-
-	var runtimeServer *http.Server
-	runtimeServer = &http.Server{Handler: rs.createRuntimeRouter()}
-
-	go func() {
-		runtimeServer.Serve(runtimeListener)
-		rs.done <- true
-	}()
-
-	return nil
-}
-
 func NewApiService(workerIPs []string, port int) *ApiService {
 	return &ApiService{
 		workerIPs:        workerIPs,
@@ -112,16 +76,14 @@ func (s *ApiService) Start() error {
 
 	if len(s.workerIPs) == 0 {
 		port := s.Addr.(*net.TCPAddr).Port
-		// s.Addr[strings.LastIndex(s.Addr, ":")+1:]
 		log.Printf("port is at %d", port)
-		// host.docker.internal doesn't presently work on Linux - probably use 172.17.0.1
 		s.localWorkerManager = NewWorkerManager(s)
 	} else {
 		log.Fatal("unimplemented")
 	}
 
 	var apiServer *http.Server
-	apiServer = &http.Server{Handler: s.addAPIRoutes(chi.NewRouter())}
+	apiServer = &http.Server{Handler: s.createAPIRouter()}
 
 	go func() {
 		apiServer.Serve(apiListener)
@@ -162,12 +124,206 @@ func (s *ApiService) InstallFunction(fc lambda.FunctionConfiguration) error {
 	s.functionsByName[functionName] = &s.functions[len(s.functions)-1]
 
 	// TODO this address is only when connecting to the local host
+	// host.docker.internal doesn't presently work on Linux - probably use 172.17.0.1
 	s.localWorkerManager.ConfigureOne(fc, fmt.Sprintf("host.docker.internal:%d", runtime.Addr.(*net.TCPAddr).Port))
 	return nil
 }
 
 func (s *ApiService) GetZipFile(codeSha256 string) ([]byte, bool) {
 	return s.codeStorage.retrieve(codeSha256)
+}
+
+func (s *ApiService) createAPIRouter() *chi.Mux {
+	r := chi.NewRouter()
+
+	r.Options("/*", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Origin") == "" {
+			w.WriteHeader(403)
+			return
+		}
+		w.Header().Set("x-amzn-requestid", fakeGUID())
+		w.Header().Set("access-control-allow-origin", "*")
+		w.Header().Set("access-control-expose-headers", "x-amzn-RequestId,x-amzn-ErrorType,x-amzn-ErrorMessage,Date,x-amz-log-result,x-amz-function-error")
+		w.Header().Set("access-control-max-age", "172800")
+		if r.Header.Get("Access-Control-Request-Headers") != "" {
+			w.Header().Set("access-control-allow-headers", r.Header.Get("Access-Control-Request-Headers"))
+		}
+		if r.Header.Get("Access-Control-Request-Method") != "" {
+			w.Header().Set("access-control-allow-methods", r.Header.Get("Access-Control-Request-Method"))
+		}
+		w.WriteHeader(200)
+	})
+
+	r.Post("/2015-03-31/functions", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("handing function creation request")
+		// TODO might want to verify content type of the request - preferably with some middleware
+
+		createCommand := lambda.CreateFunctionInput{}
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil || json.Unmarshal(body, &createCommand) != nil {
+			debug("Could not create JSON")
+			debug(body)
+			render.Render(w, r, &errResponse{
+				HTTPStatusCode: 500,
+				ErrorType:      "ErrorUnmarshalError", // TODO is this the correct error code
+				ErrorMessage:   err.Error(),
+			})
+		}
+
+		shaStr := s.codeStorage.save(createCommand.Code.ZipFile)
+
+		config := lambda.FunctionConfiguration{
+			CodeSha256:   aws.String(shaStr),
+			FunctionName: createCommand.FunctionName,
+			Handler:      createCommand.Handler,
+			MemorySize:   createCommand.MemorySize,
+			Version:      aws.String("1"),
+			// TODO
+		}
+		if config.MemorySize == nil || *config.MemorySize < 128 {
+			config.MemorySize = aws.Int64(128)
+		}
+
+		s.InstallFunction(config)
+
+		respJson, err := json.Marshal(config)
+		if err != nil {
+			render.Render(w, r, &errResponse{
+				HTTPStatusCode: 500,
+				ErrorType:      "ErrorMarshalError",
+				ErrorMessage:   err.Error(),
+			})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		w.Write(respJson)
+	})
+
+	r.Post("/2015-03-31/functions/{function}/invocations", func(w http.ResponseWriter, r *http.Request) {
+		function := chi.URLParam(r, "function")
+		log.Printf("handing function invocation request for %s", function)
+		context := newRequestContext()
+
+		if r.Header.Get("Origin") != "" {
+			w.Header().Set("access-control-allow-origin", "*")
+			w.Header().Set("access-control-expose-headers", "x-amzn-RequestId,x-amzn-ErrorType,x-amzn-ErrorMessage,Date,x-amz-log-result,x-amz-function-error")
+		}
+
+		if r.Header.Get("X-Amz-Invocation-Type") != "" {
+			context.InvocationType = r.Header.Get("X-Amz-Invocation-Type")
+		}
+		if r.Header.Get("X-Amz-Client-Context") != "" {
+			buf, err := base64.StdEncoding.DecodeString(r.Header.Get("X-Amz-Client-Context"))
+			if err != nil {
+				render.Render(w, r, &errResponse{
+					HTTPStatusCode: 400,
+					ErrorType:      "ClientContextDecodingError",
+					ErrorMessage:   err.Error(),
+				})
+				return
+			}
+			context.ClientContext = string(buf)
+		}
+		if r.Header.Get("X-Amz-Log-Type") != "" {
+			context.LogType = r.Header.Get("X-Amz-Log-Type")
+		}
+
+		if context.InvocationType == "DryRun" {
+			w.Header().Set("x-amzn-RequestId", context.RequestID)
+			w.Header().Set("x-amzn-Remapped-Content-Length", "0")
+			w.WriteHeader(204)
+			return
+		}
+
+		if body, err := ioutil.ReadAll(r.Body); err == nil {
+			log.Printf("API received a request with body %s", body)
+			context.EventBody = string(body)
+		} else {
+			render.Render(w, r, &errResponse{
+				HTTPStatusCode: 500,
+				ErrorType:      "BodyReadError",
+				ErrorMessage:   err.Error(),
+			})
+			return
+		}
+		r.Body.Close()
+
+		err := s.contextInvoke(function, context)
+		if err != nil {
+			// TODO - should check for function existence earlier - and this should be internal error (500)
+			panic(err)
+		}
+
+		if context.InvocationType == "Event" {
+			w.Header().Set("x-amzn-RequestId", context.RequestID)
+			w.Header().Set("x-amzn-Remapped-Content-Length", "0")
+			w.Header().Set("X-Amzn-Trace-Id", context.XAmznTraceID)
+			w.WriteHeader(202)
+			go context.Wait()
+			return
+		}
+
+		log.Printf("Waiting for context")
+		context.Wait()
+		log.Printf("Finished waiting for context")
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("x-amzn-RequestId", context.RequestID)
+		w.Header().Set("x-amzn-Remapped-Content-Length", "0")
+		w.Header().Set("X-Amz-Executed-Version", context.Version)
+		w.Header().Set("X-Amzn-Trace-Id", context.XAmznTraceID)
+
+		if context.LogType == "Tail" {
+			// We assume context.LogTail is already base64 encoded
+			w.Header().Set("X-Amz-Log-Result", context.LogTail)
+		}
+
+		if context.Reply.Error != nil {
+			errorType := "Unhandled"
+			if context.ErrorType != "" {
+				errorType = context.ErrorType
+			}
+			w.Header().Set("X-Amz-Function-Error", errorType)
+		}
+
+		// Lambda will usually return the payload instead of an error if the payload exists
+		if len(context.Reply.Payload) > 0 {
+			w.Header().Set("Content-Length", strconv.FormatInt(int64(len(context.Reply.Payload)), 10))
+			w.Write(context.Reply.Payload)
+			return
+		}
+
+		if payload, err := json.Marshal(context.Reply.Error); err == nil {
+			w.Header().Set("Content-Length", strconv.FormatInt(int64(len(payload)), 10))
+			w.Write(payload)
+		} else {
+			render.Render(w, r, &errResponse{
+				HTTPStatusCode: 500,
+				ErrorType:      "ErrorMarshalError",
+				ErrorMessage:   err.Error(),
+			})
+		}
+	})
+	return r
+}
+
+func (s *ApiService) awsRequestIDValidator(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestID := chi.URLParam(r, "requestID")
+
+		// if requestID != curContext.RequestID {
+		// 	render.Render(w, r, &errResponse{
+		// 		HTTPStatusCode: 400,
+		// 		ErrorType:      "InvalidRequestID",
+		// 		ErrorMessage:   "Invalid request ID",
+		// 	})
+		// 	return
+		// }
+
+		ctx := context.WithValue(r.Context(), keyRequestID, requestID)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 func (s *ApiService) contextInvoke(functionName string, context *requestContext) error {
@@ -178,6 +334,43 @@ func (s *ApiService) contextInvoke(functionName string, context *requestContext)
 		return errors.Errorf("function %s does not exist", functionName)
 	}
 	runtimeService.contextInvoke(context)
+
+	return nil
+}
+
+type RuntimeService struct {
+	functionName       string
+	port               int
+	Addr               net.Addr
+	workChan           chan *requestContext
+	activeRequestsLock sync.RWMutex
+	activeRequests     map[string]*requestContext
+	done               chan bool
+}
+
+func NewRuntimeService(functionName string) *RuntimeService {
+	return &RuntimeService{
+		functionName:   functionName,
+		workChan:       make(chan *requestContext, 20),
+		activeRequests: make(map[string]*requestContext),
+	}
+}
+
+func (rs *RuntimeService) Start() error {
+	runtimeListener, err := net.Listen("tcp", "localhost:")
+	if err != nil {
+		return errors.Wrap(err, "error opening listener")
+	}
+	rs.Addr = runtimeListener.Addr()
+	log.Printf("runtime for function %s listening at %s", rs.functionName, rs.Addr.String())
+
+	var runtimeServer *http.Server
+	runtimeServer = &http.Server{Handler: rs.createRuntimeRouter()}
+
+	go func() {
+		runtimeServer.Serve(runtimeListener)
+		rs.done <- true
+	}()
 
 	return nil
 }
@@ -365,25 +558,6 @@ func handleErrorRequest(w http.ResponseWriter, r *http.Request) {
 	*/
 }
 
-func (s *ApiService) awsRequestIDValidator(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestID := chi.URLParam(r, "requestID")
-
-		// if requestID != curContext.RequestID {
-		// 	render.Render(w, r, &errResponse{
-		// 		HTTPStatusCode: 400,
-		// 		ErrorType:      "InvalidRequestID",
-		// 		ErrorMessage:   "Invalid request ID",
-		// 	})
-		// 	return
-		// }
-
-		ctx := context.WithValue(r.Context(), keyRequestID, requestID)
-
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
 type statusResponse struct {
 	HTTPStatusCode int    `json:"-"`
 	Status         string `json:"status"`
@@ -484,6 +658,10 @@ func (c *requestContext) SetInitEnd(r *http.Request) {
 	}
 }
 
+func (c *requestContext) Wait() {
+	<-c.Done
+}
+
 type invokeResponse struct {
 	Payload []byte
 	Error   *lambdaError
@@ -516,182 +694,6 @@ func (c *requestContext) Deadline() time.Time {
 func (c *requestContext) LogStartRequest() {
 	c.InitEnd = time.Now()
 	systemLog("START RequestId: " + c.RequestID + " Version: " + c.Version)
-}
-
-func (s *ApiService) addAPIRoutes(r *chi.Mux) *chi.Mux {
-	r.Options("/*", func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Origin") == "" {
-			w.WriteHeader(403)
-			return
-		}
-		w.Header().Set("x-amzn-requestid", fakeGUID())
-		w.Header().Set("access-control-allow-origin", "*")
-		w.Header().Set("access-control-expose-headers", "x-amzn-RequestId,x-amzn-ErrorType,x-amzn-ErrorMessage,Date,x-amz-log-result,x-amz-function-error")
-		w.Header().Set("access-control-max-age", "172800")
-		if r.Header.Get("Access-Control-Request-Headers") != "" {
-			w.Header().Set("access-control-allow-headers", r.Header.Get("Access-Control-Request-Headers"))
-		}
-		if r.Header.Get("Access-Control-Request-Method") != "" {
-			w.Header().Set("access-control-allow-methods", r.Header.Get("Access-Control-Request-Method"))
-		}
-		w.WriteHeader(200)
-	})
-
-	r.Post("/2015-03-31/functions", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("handing function creation request")
-		// TODO might want to verify content type of the request - preferably with some middleware
-
-		createCommand := lambda.CreateFunctionInput{}
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil || json.Unmarshal(body, &createCommand) != nil {
-			debug("Could not create JSON")
-			debug(body)
-			render.Render(w, r, &errResponse{
-				HTTPStatusCode: 500,
-				ErrorType:      "ErrorUnmarshalError", // TODO is this the correct error code
-				ErrorMessage:   err.Error(),
-			})
-		}
-
-		shaStr := s.codeStorage.save(createCommand.Code.ZipFile)
-
-		config := lambda.FunctionConfiguration{
-			CodeSha256:   aws.String(shaStr),
-			FunctionName: createCommand.FunctionName,
-			Handler:      createCommand.Handler,
-			MemorySize:   createCommand.MemorySize,
-			Version:      aws.String("1"),
-			// TODO
-		}
-		if config.MemorySize == nil || *config.MemorySize < 128 {
-			config.MemorySize = aws.Int64(128)
-		}
-
-		s.InstallFunction(config)
-
-		respJson, err := json.Marshal(config)
-		if err != nil {
-			render.Render(w, r, &errResponse{
-				HTTPStatusCode: 500,
-				ErrorType:      "ErrorMarshalError",
-				ErrorMessage:   err.Error(),
-			})
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		w.Write(respJson)
-	})
-
-	r.Post("/2015-03-31/functions/{function}/invocations", func(w http.ResponseWriter, r *http.Request) {
-		function := chi.URLParam(r, "function")
-		log.Printf("handing function invocation request for %s", function)
-		context := newRequestContext()
-
-		if r.Header.Get("Origin") != "" {
-			w.Header().Set("access-control-allow-origin", "*")
-			w.Header().Set("access-control-expose-headers", "x-amzn-RequestId,x-amzn-ErrorType,x-amzn-ErrorMessage,Date,x-amz-log-result,x-amz-function-error")
-		}
-
-		if r.Header.Get("X-Amz-Invocation-Type") != "" {
-			context.InvocationType = r.Header.Get("X-Amz-Invocation-Type")
-		}
-		if r.Header.Get("X-Amz-Client-Context") != "" {
-			buf, err := base64.StdEncoding.DecodeString(r.Header.Get("X-Amz-Client-Context"))
-			if err != nil {
-				render.Render(w, r, &errResponse{
-					HTTPStatusCode: 400,
-					ErrorType:      "ClientContextDecodingError",
-					ErrorMessage:   err.Error(),
-				})
-				return
-			}
-			context.ClientContext = string(buf)
-		}
-		if r.Header.Get("X-Amz-Log-Type") != "" {
-			context.LogType = r.Header.Get("X-Amz-Log-Type")
-		}
-
-		if context.InvocationType == "DryRun" {
-			w.Header().Set("x-amzn-RequestId", context.RequestID)
-			w.Header().Set("x-amzn-Remapped-Content-Length", "0")
-			w.WriteHeader(204)
-			return
-		}
-
-		if body, err := ioutil.ReadAll(r.Body); err == nil {
-			log.Printf("API received a request with body %s", body)
-			context.EventBody = string(body)
-		} else {
-			render.Render(w, r, &errResponse{
-				HTTPStatusCode: 500,
-				ErrorType:      "BodyReadError",
-				ErrorMessage:   err.Error(),
-			})
-			return
-		}
-		r.Body.Close()
-
-		err := s.contextInvoke(function, context)
-		if err != nil {
-			// TODO - should check for function existence earlier - and this should be internal error (500)
-			panic(err)
-		}
-
-		if context.InvocationType == "Event" {
-			w.Header().Set("x-amzn-RequestId", context.RequestID)
-			w.Header().Set("x-amzn-Remapped-Content-Length", "0")
-			w.Header().Set("X-Amzn-Trace-Id", context.XAmznTraceID)
-			w.WriteHeader(202)
-			go waitForContext(context)
-			return
-		}
-
-		log.Printf("Waiting for context")
-		waitForContext(context)
-		log.Printf("Finished waiting for context")
-
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("x-amzn-RequestId", context.RequestID)
-		w.Header().Set("x-amzn-Remapped-Content-Length", "0")
-		w.Header().Set("X-Amz-Executed-Version", context.Version)
-		w.Header().Set("X-Amzn-Trace-Id", context.XAmznTraceID)
-
-		if context.LogType == "Tail" {
-			// We assume context.LogTail is already base64 encoded
-			w.Header().Set("X-Amz-Log-Result", context.LogTail)
-		}
-
-		if context.Reply.Error != nil {
-			errorType := "Unhandled"
-			if context.ErrorType != "" {
-				errorType = context.ErrorType
-			}
-			w.Header().Set("X-Amz-Function-Error", errorType)
-		}
-
-		// Lambda will usually return the payload instead of an error if the payload exists
-		if len(context.Reply.Payload) > 0 {
-			w.Header().Set("Content-Length", strconv.FormatInt(int64(len(context.Reply.Payload)), 10))
-			w.Write(context.Reply.Payload)
-			return
-		}
-
-		if payload, err := json.Marshal(context.Reply.Error); err == nil {
-			w.Header().Set("Content-Length", strconv.FormatInt(int64(len(payload)), 10))
-			w.Write(payload)
-		} else {
-			render.Render(w, r, &errResponse{
-				HTTPStatusCode: 500,
-				ErrorType:      "ErrorMarshalError",
-				ErrorMessage:   err.Error(),
-			})
-		}
-	})
-	return r
-}
-
-func waitForContext(context *requestContext) {
-	<-context.Done
 }
 
 type CodeStorage struct {
