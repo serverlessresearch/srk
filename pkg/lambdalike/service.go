@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -42,7 +43,9 @@ type ApiService struct {
 	m                  sync.RWMutex
 	workerIPs          []string
 	port               int
-	Addr               net.Addr
+	configAddr         string
+	Addr, CodeAddr     net.Addr
+	allocator          *Allocator
 	localWorkerManager *WorkerManager
 	functionsByName    map[string]*lambda.FunctionConfiguration
 	functions          []lambda.FunctionConfiguration
@@ -51,10 +54,10 @@ type ApiService struct {
 	done               chan bool
 }
 
-func NewApiService(workerIPs []string, port int) *ApiService {
+func NewApiService(workerIPs []string, addrString string) *ApiService {
 	return &ApiService{
 		workerIPs:        workerIPs,
-		port:             port,
+		configAddr:       addrString,
 		functionsByName:  make(map[string]*lambda.FunctionConfiguration),
 		functionRuntimes: make(map[string]*RuntimeService),
 		codeStorage:      NewCodeStorage(),
@@ -63,11 +66,7 @@ func NewApiService(workerIPs []string, port int) *ApiService {
 }
 
 func (s *ApiService) Start() error {
-	var addr string = "localhost:"
-	if s.port > 0 {
-		addr = fmt.Sprintf(":%d", s.port)
-	}
-	apiListener, err := net.Listen("tcp", addr)
+	apiListener, err := net.Listen("tcp", s.configAddr)
 	if err != nil {
 		return errors.Wrap(err, "error opening listener")
 	}
@@ -77,9 +76,21 @@ func (s *ApiService) Start() error {
 	if len(s.workerIPs) == 0 {
 		port := s.Addr.(*net.TCPAddr).Port
 		log.Printf("port is at %d", port)
-		s.localWorkerManager = NewWorkerManager(s)
+		s.localWorkerManager = NewWorkerManager("", s)
 	} else {
-		log.Fatal("unimplemented")
+		codeServiceListener, err := net.Listen("tcp", fmt.Sprintf("%s:", s.Addr.(*net.TCPAddr).IP.String()))
+		if err != nil {
+			return err
+		}
+		s.CodeAddr = codeServiceListener.Addr()
+		var codeServer *http.Server
+		log.Printf("serving code at %s", s.CodeAddr.String())
+		codeServer = &http.Server{Handler: s.createCodeRouter()}
+		go func() {
+			codeServer.Serve(codeServiceListener)
+			s.done <- true
+		}()
+		s.allocator = NewAllocator(s.workerIPs, s.CodeAddr.String())
 	}
 
 	var apiServer *http.Server
@@ -123,14 +134,54 @@ func (s *ApiService) InstallFunction(fc lambda.FunctionConfiguration) error {
 	s.functions = append(s.functions, fc)
 	s.functionsByName[functionName] = &s.functions[len(s.functions)-1]
 
-	// TODO this address is only when connecting to the local host
-	// host.docker.internal doesn't presently work on Linux - probably use 172.17.0.1
-	s.localWorkerManager.ConfigureOne(fc, fmt.Sprintf("host.docker.internal:%d", runtime.Addr.(*net.TCPAddr).Port))
+	runtimeAddr := runtime.Addr.String()
+	if s.localWorkerManager != nil {
+		var resp ConfigResponse
+		s.localWorkerManager.Configure(&ConfigRequest{WorkerFunctionConfigurations: []WorkerFunctionConfiguration{
+			{
+				FunctionConfiguration: &fc,
+				RuntimeAddr:           runtimeAddr,
+				NumInstances:          1,
+			},
+		}}, &resp)
+	} else {
+		err = s.allocator.AddFunction(WorkerFunctionConfiguration{
+			FunctionConfiguration: &fc,
+			RuntimeAddr:           runtimeAddr,
+			NumInstances:          2,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func (s *ApiService) GetZipFile(codeSha256 string) ([]byte, bool) {
 	return s.codeStorage.retrieve(codeSha256)
+}
+
+func (s *ApiService) createCodeRouter() *chi.Mux {
+	r := chi.NewRouter()
+
+	r.Get("/zipfile/{codeSha256}", func(w http.ResponseWriter, r *http.Request) {
+		codeSha256 := chi.URLParam(r, "codeSha256")
+		code, found := s.codeStorage.retrieve(codeSha256)
+		if !found {
+			render.Render(w, r, &errResponse{
+				HTTPStatusCode: 404,
+				ErrorType:      "NotFound",
+				ErrorMessage:   fmt.Sprintf("no code found for sha256 %q", codeSha256),
+			})
+		} else {
+			// TODO intended to be a zip, but not actually verifying this
+			w.Header().Set("Content-Type", "application/zip")
+			w.WriteHeader(200)
+			io.Copy(w, bytes.NewReader(code))
+		}
+	})
+	return r
 }
 
 func (s *ApiService) createAPIRouter() *chi.Mux {
@@ -184,7 +235,16 @@ func (s *ApiService) createAPIRouter() *chi.Mux {
 			config.MemorySize = aws.Int64(128)
 		}
 
-		s.InstallFunction(config)
+		err = s.InstallFunction(config)
+		if err != nil {
+			log.Printf("Error installing function %s", err)
+			render.Render(w, r, &errResponse{
+				HTTPStatusCode: 500,
+				ErrorType:      "ErrorInternalError",
+				ErrorMessage:   err.Error(),
+			})
+			return
+		}
 
 		respJson, err := json.Marshal(config)
 		if err != nil {
@@ -193,6 +253,7 @@ func (s *ApiService) createAPIRouter() *chi.Mux {
 				ErrorType:      "ErrorMarshalError",
 				ErrorMessage:   err.Error(),
 			})
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)

@@ -191,7 +191,7 @@ func installObject(client *lambda.Lambda, name string) (*lambda.FunctionConfigur
 }
 
 func setup() (*lambdalike.ApiService, *lambda.Lambda, error) {
-	s := lambdalike.NewApiService([]string{}, 0)
+	s := lambdalike.NewApiService([]string{}, "localhost:")
 	err := s.Start()
 	if err != nil {
 		return nil, nil, err
