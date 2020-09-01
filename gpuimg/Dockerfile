@@ -15,6 +15,7 @@ RUN curl https://lambci.s3.amazonaws.com/fs/python3.8.tgz | tar -zx -C / var/run
         -o /var/runtime/build/temp.linux-x86_64-3.8/rapid_client.o \
     && g++ -shared -L /var/runtime/deps/artifacts/lib \
         /var/runtime/build/temp.linux-x86_64-3.8/rapid_client.o \
+        -o /var/runtime/build/lib.linux-x86_64-3.8/rapid_client.cpython-38-x86_64-linux-gnu.so \
         -laws-lambda-runtime -lcurl -lpthread
 
 FROM nvidia/cuda
