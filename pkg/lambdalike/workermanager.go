@@ -266,7 +266,7 @@ $BOOTSTRAP`
 func (ir *InstanceRunner) Start() error {
 	// TODO this address is only when connecting to the local host
 	// host.docker.internal doesn't presently work on Linux - probably use 172.17.0.1
-	runtimeAddr := strings.Replace(ir.runtimeAddr, "127.0.0.1", "host.docker.internal", 1)
+	runtimeAddr := strings.Replace(ir.runtimeAddr, "127.0.0.1", dockerHostIP, 1)
 	dockerArgs := []string{
 		"run", "-i", "--rm",
 		"--entrypoint", "/bin/bash",
@@ -282,11 +282,28 @@ func (ir *InstanceRunner) Start() error {
 		"--env", "AWS_REGION=" + ir.region,
 		"--env", "AWS_DEFAULT_REGION=" + ir.region,
 		"--env", "AWS_LAMBDA_RUNTIME_API=" + runtimeAddr,
-		"lambci/lambda:python3.8",
 	}
 
+	if dockerHostNetworking {
+		dockerArgs = append(dockerArgs, "--net=host")
+	}
+
+	gpuRequired := map[string]bool{
+		"python3.8-cuda": true,
+		"python3.8":      false,
+	}
+
+	addGPU, found := gpuRequired[*ir.fc.Runtime]
+	if !found {
+		return fmt.Errorf("Unkown runtime %s", ir.fc.Runtime)
+	}
+	if addGPU {
+		dockerArgs = append(dockerArgs, "--gpus", "all")
+	}
+	dockerArgs = append(dockerArgs, fmt.Sprintf("lambci/lambda:%s", *ir.fc.Runtime))
+
 	ir.cmd = exec.Command("docker", dockerArgs...)
-	fmt.Printf("Executing command %+v", ir.cmd)
+	log.Printf("Executing command %+v", ir.cmd)
 
 	ir.cmd.Stdout = os.Stdout
 	ir.cmd.Stderr = os.Stderr
