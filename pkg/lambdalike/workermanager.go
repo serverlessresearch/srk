@@ -240,7 +240,7 @@ type InstanceRunner struct {
 	region      string
 }
 
-func (wm *WorkerManager) NewInstanceRunner(fc *lambda.FunctionConfiguration, runtimeAddr, sourcePath string, gpuEnabled bool) *InstanceRunner {
+func (wm *WorkerManager) NewInstanceRunner(fc *lambda.FunctionConfiguration, runtimeAddr, sourcePath string) *InstanceRunner {
 	ir := &InstanceRunner{wm, fc, runtimeAddr, sourcePath, nil, "", "us-west-2"}
 	return ir
 }

@@ -16,7 +16,7 @@ var benchCmdConfig struct {
 	functionName string
 	functionArgs string
 	benchParams  string
-	trackingUrl  string
+	trackingURL  string
 	logFile      string
 }
 
@@ -30,11 +30,11 @@ functions and configured the provider.`,
 
 		var bench srk.Benchmark
 		benchArgs := srk.BenchArgs{
-			benchCmdConfig.functionName,
-			benchCmdConfig.functionArgs,
-			benchCmdConfig.benchParams,
-			benchCmdConfig.trackingUrl,
-			benchCmdConfig.logFile,
+			FName:       benchCmdConfig.functionName,
+			FArgs:       benchCmdConfig.functionArgs,
+			BParams:     benchCmdConfig.benchParams,
+			TrackingUrl: benchCmdConfig.trackingURL,
+			Output:      benchCmdConfig.logFile,
 		}
 
 		switch benchCmdConfig.benchName {
@@ -95,7 +95,7 @@ func init() {
 	benchCmd.Flags().StringVarP(&benchCmdConfig.functionName, "function-name", "n", "", "The function to run")
 	benchCmd.Flags().StringVarP(&benchCmdConfig.functionArgs, "function-args", "a", "{}", "Arguments to the function")
 	benchCmd.Flags().StringVarP(&benchCmdConfig.benchParams, "params", "p", "{}", "Parameters for the benchmark")
-	benchCmd.Flags().StringVarP(&benchCmdConfig.trackingUrl, "trackingUrl", "u", "", "URL for posting responses")
+	benchCmd.Flags().StringVarP(&benchCmdConfig.trackingURL, "trackingUrl", "u", "", "URL for posting responses")
 	benchCmd.Flags().StringVarP(&benchCmdConfig.logFile, "output", "o", "", "Output File")
 }
 
