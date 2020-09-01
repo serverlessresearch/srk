@@ -296,7 +296,7 @@ func (ir *InstanceRunner) Start() error {
 	if addGPU {
 		dockerArgs = append(dockerArgs, "--gpu")
 	}
-	dockerArgs = append(dockerArgs, "lambci/lambda"+*ir.fc.Runtime)
+	dockerArgs = append(dockerArgs, fmt.Sprintf("lambci/lambda:%s", *ir.fc.Runtime))
 
 	ir.cmd = exec.Command("docker", dockerArgs...)
 	fmt.Printf("Executing command %+v", ir.cmd)

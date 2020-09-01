@@ -229,7 +229,9 @@ func (s *ApiService) createAPIRouter() *chi.Mux {
 			Handler:      createCommand.Handler,
 			MemorySize:   createCommand.MemorySize,
 			Version:      aws.String("1"),
-			// TODO
+			Runtime:      createCommand.Runtime,
+			Timeout:      createCommand.Timeout,
+			// TODO add more fields
 		}
 		if config.MemorySize == nil || *config.MemorySize < 128 {
 			config.MemorySize = aws.Int64(128)
@@ -311,7 +313,8 @@ func (s *ApiService) createAPIRouter() *chi.Mux {
 
 		err := s.contextInvoke(function, context)
 		if err != nil {
-			// TODO - should check for function existence earlier - and this should be internal error (500)
+			// TODO - contextInvoke can return an error when the fuction does not exist. We should be checking
+			// for this earlier. If an error is produced here it should be an internal error (500) not a panic.
 			panic(err)
 		}
 
