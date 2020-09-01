@@ -5,7 +5,7 @@ FROM nvidia/cuda
 RUN apt-get update && apt-get install -y python3.8-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl https://lambci.s3.amazonaws.com/fs/python3.8.tgz | tar -zx -C / var/runtime \
+RUN curl https://lambci.s3.amazonaws.com/fs/python3.8.tgz | tar -zx -C / var/runtime
 
 RUN rm -f /var/runtime/build/temp.linux-x86_64-3.8/rapid_client.o \
         /var/runtime/build/lib.linux-x86_64-3.8/rapid_client.cpython-38-x86_64-linux-gnu.so \
