@@ -32,7 +32,11 @@ ENV PATH=/var/lang/bin:$PATH \
     AWS_EXECUTION_ENV=AWS_Lambda_python3.7
 
 RUN rm -rf /var/runtime /var/lang /var/rapid && \
-  curl https://lambci.s3.amazonaws.com/fs/python3.7.tgz | tar -zx -C /
+  curl https://lambci.s3.amazonaws.com/fs/python3.8.tgz | tar -zx -C / var/runtime
+
+RUN apt-get update && apt-get install -y python3.8 python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+RUN pip3 install numpy
 
 COPY --from=0 /var/runtime/init /var/rapid/init
 

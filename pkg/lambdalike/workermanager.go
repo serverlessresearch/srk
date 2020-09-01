@@ -303,7 +303,7 @@ func (ir *InstanceRunner) Start() error {
 	dockerArgs = append(dockerArgs, fmt.Sprintf("lambci/lambda:%s", *ir.fc.Runtime))
 
 	ir.cmd = exec.Command("docker", dockerArgs...)
-	fmt.Printf("Executing command %+v", ir.cmd)
+	log.Printf("Executing command %+v", ir.cmd)
 
 	ir.cmd.Stdout = os.Stdout
 	ir.cmd.Stderr = os.Stderr
