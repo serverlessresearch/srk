@@ -1,6 +1,9 @@
 FROM lambci/lambda:provided
 
 FROM nvidia/cuda
+
+# Recreate lambci/lambda:base
+
 RUN groupadd --gid 495 sandbox
 RUN useradd -M --uid 496 --gid 495 --home-dir /home/sbx_user1051 --shell /sbin/nologin sbx_user1051
 
@@ -21,6 +24,8 @@ ENV PATH=/usr/local/bin:/usr/bin/:/bin:/opt/bin \
     AWS_XRAY_DAEMON_ADDRESS=169.254.79.2:2000 \
     AWS_XRAY_CONTEXT_MISSING=LOG_ERROR \
     _X_AMZN_TRACE_ID='Root=1-dc99d00f-c079a84d433534434534ef0d;Parent=91ed514f1e5c03b2;Sampled=1'
+
+# Adapted from lambci/lambda:python3.7
 
 ENV PATH=/var/lang/bin:$PATH \
     LD_LIBRARY_PATH=/var/lang/lib:$LD_LIBRARY_PATH \

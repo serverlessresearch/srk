@@ -240,7 +240,7 @@ type InstanceRunner struct {
 	region      string
 }
 
-func (wm *WorkerManager) NewInstanceRunner(fc *lambda.FunctionConfiguration, runtimeAddr, sourcePath string) *InstanceRunner {
+func (wm *WorkerManager) NewInstanceRunner(fc *lambda.FunctionConfiguration, runtimeAddr, sourcePath string, gpuEnabled bool) *InstanceRunner {
 	ir := &InstanceRunner{wm, fc, runtimeAddr, sourcePath, nil, "", "us-west-2"}
 	return ir
 }
@@ -282,8 +282,21 @@ func (ir *InstanceRunner) Start() error {
 		"--env", "AWS_REGION=" + ir.region,
 		"--env", "AWS_DEFAULT_REGION=" + ir.region,
 		"--env", "AWS_LAMBDA_RUNTIME_API=" + runtimeAddr,
-		"lambci/lambda:python3.8",
 	}
+
+	gpuRequired := map[string]bool{
+		"python3.7-cuda": true,
+		"python3.8":      false,
+	}
+
+	addGPU, found := gpuRequired[*ir.fc.Runtime]
+	if !found {
+		return fmt.Errorf("Unkown runtime %s", ir.fc.Runtime)
+	}
+	if addGPU {
+		dockerArgs = append(dockerArgs, "--gpu")
+	}
+	dockerArgs = append(dockerArgs, "lambci/lambda"+*ir.fc.Runtime)
 
 	ir.cmd = exec.Command("docker", dockerArgs...)
 	fmt.Printf("Executing command %+v", ir.cmd)
