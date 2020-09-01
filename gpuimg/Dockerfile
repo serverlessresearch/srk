@@ -2,26 +2,25 @@ FROM lambci/lambda:provided
 
 FROM nvidia/cuda
 
-RUN apt-get update && apt-get install -y python3.8-dev
+RUN apt-get update && apt-get install -y python3.8-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl https://lambci.s3.amazonaws.com/fs/python3.8.tgz | tar -zx -C / var/runtime
+RUN curl https://lambci.s3.amazonaws.com/fs/python3.8.tgz | tar -zx -C / var/runtime \
     && rm -f /var/runtime/build/temp.linux-x86_64-3.8/rapid_client.o \
-        /var/runtime/build/lib.linux-x86_64-3.8/rapid_client.cpython-38-x86_64-linux-gnu.so
+        /var/runtime/build/lib.linux-x86_64-3.8/rapid_client.cpython-38-x86_64-linux-gnu.so \
     && g++ -g -O3 -Wall -fpic \
         -I /usr/include/python3.8 \
         -I /var/runtime/deps/artifacts/include \
         -c /var/runtime/rapid_client.cpp \
-        -o /var/runtime/build/temp.linux-x86_64-3.8/rapid_client.o
+        -o /var/runtime/build/temp.linux-x86_64-3.8/rapid_client.o \
     && g++ -shared -L /var/runtime/deps/artifacts/lib \
         /var/runtime/build/temp.linux-x86_64-3.8/rapid_client.o \
         -laws-lambda-runtime -lcurl -lpthread
 
-COPY --from=0 /var/runtime/init /var/rapid/init
-
 FROM nvidia/cuda
 # Recreate lambci/lambda:base
 
+COPY --from=0 /var/runtime/init /var/rapid/init
 COPY --from=1 /var/runtime /var/runtime
 
 RUN groupadd --gid 495 sandbox
