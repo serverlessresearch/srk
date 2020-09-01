@@ -266,7 +266,7 @@ $BOOTSTRAP`
 func (ir *InstanceRunner) Start() error {
 	// TODO this address is only when connecting to the local host
 	// host.docker.internal doesn't presently work on Linux - probably use 172.17.0.1
-	runtimeAddr := strings.Replace(ir.runtimeAddr, "127.0.0.1", "host.docker.internal", 1)
+	runtimeAddr := strings.Replace(ir.runtimeAddr, "127.0.0.1", dockerHostIP, 1)
 	dockerArgs := []string{
 		"run", "-i", "--rm",
 		"--entrypoint", "/bin/bash",
