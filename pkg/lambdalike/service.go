@@ -421,7 +421,7 @@ func NewRuntimeService(functionName string) *RuntimeService {
 }
 
 func (rs *RuntimeService) Start() error {
-	runtimeListener, err := net.Listen("tcp", "localhost:")
+	runtimeListener, err := net.Listen("tcp", runtimeServiceAddress)
 	if err != nil {
 		return errors.Wrap(err, "error opening listener")
 	}

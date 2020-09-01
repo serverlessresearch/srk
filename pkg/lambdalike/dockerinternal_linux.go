@@ -3,7 +3,8 @@
 package lambdalike
 
 const (
-	// dockerHostIP         = "172.17.0.1"
-	dockerHostIP         = "127.0.0.1"
-	dockerHostNetworking = true
+	dockerHostIP = "172.17.0.1"
+	// dockerHostIP          = "127.0.0.1"
+	dockerHostNetworking  = true
+	runtimeServiceAddress = "172.17.0.1:"
 )
