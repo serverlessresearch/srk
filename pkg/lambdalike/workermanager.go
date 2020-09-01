@@ -298,7 +298,7 @@ func (ir *InstanceRunner) Start() error {
 		return fmt.Errorf("Unkown runtime %s", ir.fc.Runtime)
 	}
 	if addGPU {
-		dockerArgs = append(dockerArgs, "--gpu")
+		dockerArgs = append(dockerArgs, "--gpus", "all")
 	}
 	dockerArgs = append(dockerArgs, fmt.Sprintf("lambci/lambda:%s", *ir.fc.Runtime))
 
