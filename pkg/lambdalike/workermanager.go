@@ -289,7 +289,7 @@ func (ir *InstanceRunner) Start() error {
 	}
 
 	gpuRequired := map[string]bool{
-		"python3.7-cuda": true,
+		"python3.8-cuda": true,
 		"python3.8":      false,
 	}
 
