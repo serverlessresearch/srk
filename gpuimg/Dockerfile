@@ -36,7 +36,19 @@ RUN rm -rf /var/runtime /var/lang /var/rapid && \
 
 RUN apt-get update && apt-get install -y python3.8 python3-pip \
     && rm -rf /var/lib/apt/lists/*
+
 RUN pip3 install numpy
+
+RUN mkdir -p /var/lang/bin &
+  ln -s /usr/bin/openssl /var/lang/bin/openssl &
+  ln -s /usr/bin/pip3 /var/lang/bin/pip3 &
+  ln -s /usr/bin/pip3 /var/lang/bin/pip &
+  ln -s /usr/bin/python3 /var/lang/bin/python3 &
+  ln -s /usr/bin/python3.8 /var/lang/bin/python3.8 &
+  ln -s /usr/bin/python3 /var/lang/bin/python &
+  ln -s /usr/bin/python3-config /var/lang/bin/python3-config &
+  ln -s /usr/bin/python3.8-config /var/lang/bin/python3.8-config &
+
 
 COPY --from=0 /var/runtime/init /var/rapid/init
 
