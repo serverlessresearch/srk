@@ -49,6 +49,7 @@ ENV PATH=/usr/local/bin:/usr/bin/:/bin:/opt/bin \
 
 ENV PATH=/var/lang/bin:$PATH \
     LD_LIBRARY_PATH=/var/lang/lib:$LD_LIBRARY_PATH \
+    PYTHONPATH=/var/runtime/build/lib.linux-x86_64-3.8:$PYTHONPATH \
     AWS_EXECUTION_ENV=AWS_Lambda_python3.7
 
 RUN apt-get update && apt-get install -y python3.8 python3-pip \
