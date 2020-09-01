@@ -3,5 +3,6 @@
 package lambdalike
 
 const (
-	dockerHostIP = "host.docker.internal"
+	dockerHostIP         = "host.docker.internal"
+	dockerHostNetworking = false
 )

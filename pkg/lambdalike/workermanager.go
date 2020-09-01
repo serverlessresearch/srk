@@ -284,6 +284,10 @@ func (ir *InstanceRunner) Start() error {
 		"--env", "AWS_LAMBDA_RUNTIME_API=" + runtimeAddr,
 	}
 
+	if dockerHostNetworking {
+		dockerArgs = append(dockerArgs, "--net=host")
+	}
+
 	gpuRequired := map[string]bool{
 		"python3.7-cuda": true,
 		"python3.8":      false,
