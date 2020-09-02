@@ -66,7 +66,12 @@ func ZipDir(basePath, srcPath, dstPath string) error {
 	return ZipDirToWriter(destFile, basePath, srcPath)
 }
 
-// Create a zip archive from srcPath stored at dstPath.
+// Create a zip archive from srcPath and saved in the provided io.Writer
+// The paths in the archive will all be relative to basePath. For example,
+// ZipDir("foo/bar", "foo/bar", "bar.zip") would include all of the files in
+// bar/, not including bar/, into an archive at "./bar.zip". ZipDir("foo/",
+// "foo/bar", "bar.zip") would include the top-level directory 'bar/' in the
+// archive.
 func ZipDirToWriter(w io.Writer, basePath, srcPath string) error {
 	zipWriter := zip.NewWriter(w)
 	defer zipWriter.Close()

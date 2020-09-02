@@ -24,21 +24,21 @@ var rootCmd = &cobra.Command{
 
 	// TODO - have this commented out right now because we're bringing in configuration not needed for LambdaLike
 
-	// PersistentPreRun: func(cmd *cobra.Command, args []string) {
-	// 	mgrArgs := map[string]interface{}{}
-	// 	if srkHome != "" {
-	// 		mgrArgs["srk-home"] = srkHome
-	// 	}
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		mgrArgs := map[string]interface{}{}
+		if srkHome != "" {
+			mgrArgs["srk-home"] = srkHome
+		}
 
-	// 	var err error
-	// 	srkManager, err = srkmgr.NewManager(mgrArgs)
-	// 	if err != nil {
-	// 		log.Fatalf("Failed to initialize srk manager: %v\n", err)
-	// 	}
-	// },
-	// PersistentPostRun: func(cmd *cobra.Command, args []string) {
-	// 	srkManager.Destroy()
-	// },
+		var err error
+		srkManager, err = srkmgr.NewManager(mgrArgs)
+		if err != nil {
+			log.Fatalf("Failed to initialize srk manager: %v\n", err)
+		}
+	},
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		srkManager.Destroy()
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

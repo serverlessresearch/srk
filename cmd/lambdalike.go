@@ -23,6 +23,11 @@ var lambdaLikeAPIAddr, lambdaLikeWorkerAddr string
 var lambdaLikeAPI = &cobra.Command{
 	Use:   "apiservice",
 	Short: "Run the LambdaLike API Service",
+
+	// Don't need the pre-run and post-run declared in root.go
+	PersistentPreRun:  func(cmd *cobra.Command, args []string) {},
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {},
+
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		s := lambdalike.NewApiService(lambdaLikeWorkerIPs, lambdaLikeAPIAddr)
@@ -39,6 +44,11 @@ var lambdaLikeAPI = &cobra.Command{
 var lambdaLikeWorker = &cobra.Command{
 	Use:   "workermanager",
 	Short: "Run the Worker Mananger",
+
+	// Don't need the pre-run and post-run declared in root.go
+	PersistentPreRun:  func(cmd *cobra.Command, args []string) {},
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {},
+
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		wm := lambdalike.NewWorkerManager(lambdaLikeWorkerAddr, nil)

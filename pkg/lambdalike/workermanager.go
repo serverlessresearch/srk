@@ -89,28 +89,7 @@ type CodeServiceClient struct {
 
 func NewCodeServiceClient(codeServiceAddr string) *CodeServiceClient {
 	return &CodeServiceClient{codeServiceAddr}
-
-	// client, err := rpc.Dial("tcp", codeServiceAddr)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return &CodeServiceClient{client}, nil
 }
-
-// type GetZipFileRequest struct {
-// 	Name string
-// }
-
-// type GetZipFileResponse struct {
-// 	ZipFile []byte
-// 	Found   bool
-// }
-
-// func (c *CodeServiceClient) GetZipFile(name string) ([]byte, bool) {
-// 	resp := GetZipFileResponse{}
-// 	c.client.Call("CodeService.GetZipFile", &GetZipFileRequest{name}, &resp)
-// 	return resp.ZipFile, resp.Found
-// }
 
 func (c *CodeServiceClient) GetZipFile(name string) ([]byte, bool) {
 	zipFileUrl := fmt.Sprintf("http://%s/zipfile/%s", c.codeServiceAddr, name)
@@ -264,8 +243,6 @@ fi
 $BOOTSTRAP`
 
 func (ir *InstanceRunner) Start() error {
-	// TODO this address is only when connecting to the local host
-	// host.docker.internal doesn't presently work on Linux - probably use 172.17.0.1
 	runtimeAddr := strings.Replace(ir.runtimeAddr, "127.0.0.1", dockerHostIP, 1)
 	dockerArgs := []string{
 		"run", "-i", "--rm",
