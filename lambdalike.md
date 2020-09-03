@@ -31,13 +31,12 @@ aws lambda create-function --endpoint http://localhost:9001 --no-sign-request \
 ```
 Note that you must set the `AWS_DEFAULT_REGION` environment variable if you have not already done so.
 
-Now you can invoke the function:
+Now you can invoke the function (If you are using a version 1 AWS CLI then omit `--cli-binary-format raw-in-base64-out`):
 ```
 aws lambda invoke --endpoint http://localhost:9001 --no-sign-request \
     --cli-binary-format raw-in-base64-out \
     --function-name echo --payload '{"message": "hi there!"}' output.json
 ```
-If you are using a version 1 AWS CLI then omit `--cli-binary-format raw-in-base64-out`.
 
 Check the output:
 ```
@@ -85,19 +84,19 @@ This Docker image combines the functionality of Docker Lambda (see [GitHub](http
 
 You can invoke a function directly, e.g.,
 ```
-cd examples/echo
+cd examples/gpu
 docker run --rm -v "$PWD":/var/task:ro,delegated \
     --gpus all \
     lambci/lambda:python3.8-cuda \
-    localtest.lambda_handler '{}'
+    f.aws_handler '{"test-size" : 1048576}'
 ```
 
 You can also use the `python3.8-cuda` image with LambdaLike.
 Just be sure to build the Docker image on the machine that is running the Worker Manager (possibly embedded with the API Service).
 
-You can run the echo program with GPU support as follows:
+You can run the gpu program following the same procedure as above for echo, just change the requested runtime to python3.8-cuda when creating the function:
 ```
 aws lambda create-function --endpoint http://localhost:9001 --no-sign-request \
-    --function-name echo --runtime python3.8 --role myrole --handler lambda_function.lambda_handler \
-    --zip-file fileb://echo.zip
+    --function-name gpuexample --runtime python3.8-cuda --role myrole --handler f.aws_handler \
+    --zip-file fileb://gpu.zip
 ```
