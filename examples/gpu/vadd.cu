@@ -10,7 +10,7 @@ void add(int n, float *x, float *y)
     y[i] = x[i] + y[i];
 }
 
-bool cudaTest(int N)
+extern "C" bool cudaTest(int N)
 {
   /* int N = 1<<20; */
   float *x, *y;
