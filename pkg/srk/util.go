@@ -9,6 +9,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -62,15 +63,26 @@ func ZipDir(basePath, srcPath, dstPath string) error {
 		return err
 	}
 	defer destFile.Close()
+	return ZipDirToWriter(destFile, basePath, srcPath)
+}
 
-	zipWriter := zip.NewWriter(destFile)
+// Create a zip archive from srcPath and saved in the provided io.Writer
+// The paths in the archive will all be relative to basePath. For example,
+// ZipDir("foo/bar", "foo/bar", "bar.zip") would include all of the files in
+// bar/, not including bar/, into an archive at "./bar.zip". ZipDir("foo/",
+// "foo/bar", "bar.zip") would include the top-level directory 'bar/' in the
+// archive.
+func ZipDirToWriter(w io.Writer, basePath, srcPath string) error {
+	zipWriter := zip.NewWriter(w)
 	defer zipWriter.Close()
-	err = filepath.Walk(srcPath, func(filePath string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
+	log.Printf("walk %s", srcPath)
+	err := filepath.Walk(srcPath, func(filePath string, info os.FileInfo, err error) error {
+		// log.Printf("%s %v %v", filePath, info, err)
 		if err != nil {
 			return err
+		}
+		if info.IsDir() {
+			return nil
 		}
 		relPath, err := filepath.Rel(basePath, filePath)
 		if err != nil {
@@ -111,19 +123,22 @@ func ZipDir(basePath, srcPath, dstPath string) error {
 	return nil
 }
 
-// Unzip will decompress a zip archive, moving all files and folders
-// within the zip file (parameter 1) to an output directory (parameter 2).
-// Credit: https://golangcode.com/unzip-files-in-go/
 func Unzip(src, dst string) ([]string, error) {
-	var filenames []string
-
 	r, err := zip.OpenReader(src)
 	if err != nil {
-		return filenames, err
+		return nil, err
 	}
 	defer r.Close()
+	return ZipExpand(r.File, dst)
+}
 
-	for _, f := range r.File {
+// ZipExpand will decompress a zip archive, moving all files and folders
+// within the zip file (parameter 1) to an output directory (parameter 2).
+// Credit: https://golangcode.com/unzip-files-in-go/
+func ZipExpand(files []*zip.File, dst string) ([]string, error) {
+	var filenames []string
+
+	for _, f := range files {
 
 		// Store filename/path for returning and using later on
 		fpath := filepath.Join(dst, f.Name)
@@ -142,7 +157,7 @@ func Unzip(src, dst string) ([]string, error) {
 		}
 
 		// Make File
-		if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+		if err := os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
 			return filenames, err
 		}
 

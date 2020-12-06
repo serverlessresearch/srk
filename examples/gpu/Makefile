@@ -1,7 +1,7 @@
 all: vadd vadd.so
 
 vadd.so: vadd.cu
-	nvcc vadd.cu -o vadd.so -shared -Xcompiler -fPIC -lcublas
+	nvcc vadd.cu -o vadd.so -shared -Xcompiler -fPIC
 
 vadd: vadd.cu
 	nvcc vadd.cu -o vadd
